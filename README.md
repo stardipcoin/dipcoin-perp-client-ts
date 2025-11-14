@@ -57,6 +57,34 @@ const sdk = initDipCoinPerpSDK(keypair, {
 
 ## Core Features
 
+### Authentication (Onboarding)
+
+Before using the SDK, you need to authenticate first. The SDK will automatically handle authentication when you call any API method, but you can also authenticate manually:
+
+```typescript
+// Manual authentication
+const authResult = await sdk.authenticate();
+if (authResult.status) {
+  console.log("Authenticated! JWT Token:", authResult.data);
+} else {
+  console.error("Authentication failed:", authResult.error);
+}
+
+// Get JWT token (authenticates if needed)
+const tokenResult = await sdk.getJWTToken();
+if (tokenResult.status) {
+  console.log("JWT Token:", tokenResult.data);
+}
+
+// Force refresh token
+const refreshResult = await sdk.getJWTToken(true);
+
+// Clear authentication (logout)
+sdk.clearAuth();
+```
+
+**Note:** All API methods automatically authenticate if needed, so you don't need to call `authenticate()` manually in most cases.
+
 ### Account Information
 
 Get account balance and trading information:

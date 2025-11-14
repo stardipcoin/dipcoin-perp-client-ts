@@ -44,6 +44,17 @@ async function main() {
   console.log("Wallet Address:", sdk.address);
 
   try {
+    // 0. Authenticate first (onboarding)
+    console.log("\n=== Authenticating (Onboarding) ===");
+    const authResult = await sdk.authenticate();
+    if (authResult.status) {
+      console.log("✅ Authentication successful!");
+      console.log("JWT Token:", authResult.data?.substring(0, 20) + "...");
+    } else {
+      console.error("❌ Authentication failed:", authResult.error);
+      return;
+    }
+
     // 1. Get account information
     console.log("\n=== Getting Account Info ===");
     const accountInfo = await sdk.getAccountInfo();

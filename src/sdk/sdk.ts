@@ -19,7 +19,7 @@ import {
   OrderType,
 } from "../types";
 import { HttpClient } from "../services/httpClient";
-import { API_ENDPOINTS } from "../constants";
+import { API_ENDPOINTS, ONBOARDING_MESSAGE } from "../constants";
 import {
   formatNormalToWei,
   formatNormalToWeiBN,
@@ -36,6 +36,8 @@ export class DipCoinPerpSDK {
   private keypair: Keypair;
   private walletAddress: string;
   private options: DipCoinPerpSDKOptions;
+  private jwtToken?: string;
+  private isAuthenticating: boolean = false;
 
   /**
    * Initialize SDK
@@ -76,12 +78,111 @@ export class DipCoinPerpSDK {
   }
 
   /**
+   * Authenticate and get JWT token (onboarding)
+   * This method signs the onboarding message and exchanges it for a JWT token
+   * @returns JWT token
+   */
+  async authenticate(): Promise<SDKResponse<string>> {
+    try {
+      // If already authenticated and token exists, return it
+      if (this.jwtToken) {
+        return {
+          status: true,
+          data: this.jwtToken,
+        };
+      }
+
+      // Prevent concurrent authentication requests
+      if (this.isAuthenticating) {
+        // Wait for ongoing authentication
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        if (this.jwtToken) {
+          return {
+            status: true,
+            data: this.jwtToken,
+          };
+        }
+      }
+
+      this.isAuthenticating = true;
+
+      // 1. Prepare onboarding message
+      const messageBytes = new TextEncoder().encode(ONBOARDING_MESSAGE);
+
+      // 2. Sign the message
+      const signature = await signMessage(this.keypair, messageBytes);
+
+      // 3. Call authorize endpoint to get JWT token
+      const response = await this.httpClient.post<{ token: string }>(
+        API_ENDPOINTS.AUTHORIZE,
+        {
+          userAddress: this.walletAddress,
+          isTermAccepted: true,
+          signature: signature,
+        }
+      );
+
+      if (response.code === 200 && response.data?.token) {
+        this.jwtToken = response.data.token;
+        this.httpClient.setAuthToken(this.jwtToken);
+        this.isAuthenticating = false;
+        return {
+          status: true,
+          data: this.jwtToken,
+        };
+      } else {
+        this.isAuthenticating = false;
+        return {
+          status: false,
+          error: response.message || "Failed to authenticate",
+        };
+      }
+    } catch (error) {
+      this.isAuthenticating = false;
+      return {
+        status: false,
+        error: formatError(error),
+      };
+    }
+  }
+
+  /**
+   * Get JWT token, authenticate if needed
+   * @param forceRefresh Force refresh the token even if one exists
+   * @returns JWT token
+   */
+  async getJWTToken(forceRefresh: boolean = false): Promise<SDKResponse<string>> {
+    if (forceRefresh) {
+      this.jwtToken = undefined;
+      this.httpClient.setAuthToken("");
+    }
+    return this.authenticate();
+  }
+
+  /**
+   * Clear JWT token (logout)
+   */
+  clearAuth(): void {
+    this.jwtToken = undefined;
+    this.httpClient.setAuthToken("");
+  }
+
+  /**
    * Place an order
    * @param params Order parameters
    * @returns Order response
    */
   async placeOrder(params: PlaceOrderParams): Promise<SDKResponse<OrderResponse>> {
     try {
+      // Ensure authenticated before making request
+      const authResult = await this.authenticate();
+      if (!authResult.status) {
+        return {
+          status: false,
+          error: authResult.error || "Authentication failed",
+        };
+      }
+
       // Validate required parameters
       if (!params.symbol || !params.side || !params.orderType || !params.quantity || !params.leverage) {
         throw new Error("Missing required order parameters");
@@ -247,6 +348,29 @@ export class DipCoinPerpSDK {
         requestParams
       );
 
+      // Handle JWT expiration
+      if (response.code === 1000) {
+        this.clearAuth();
+        const retryAuth = await this.authenticate();
+        if (retryAuth.status) {
+          // Retry the request
+          const retryResponse = await this.httpClient.postForm<OrderResponse>(
+            API_ENDPOINTS.PLACE_ORDER,
+            requestParams
+          );
+          if (retryResponse.code === 200) {
+            return {
+              status: true,
+              data: retryResponse,
+            };
+          }
+        }
+        return {
+          status: false,
+          error: "Authentication expired and refresh failed",
+        };
+      }
+
       if (response.code === 200) {
         return {
           status: true,
@@ -273,6 +397,15 @@ export class DipCoinPerpSDK {
    */
   async cancelOrder(params: CancelOrderParams): Promise<SDKResponse<OrderResponse>> {
     try {
+      // Ensure authenticated before making request
+      const authResult = await this.authenticate();
+      if (!authResult.status) {
+        return {
+          status: false,
+          error: authResult.error || "Authentication failed",
+        };
+      }
+
       const { symbol, orderHashes, parentAddress = this.walletAddress } = params;
 
       if (!orderHashes || orderHashes.length === 0) {
@@ -300,6 +433,29 @@ export class DipCoinPerpSDK {
         requestParams
       );
 
+      // Handle JWT expiration
+      if (response.code === 1000) {
+        this.clearAuth();
+        const retryAuth = await this.authenticate();
+        if (retryAuth.status) {
+          // Retry the request
+          const retryResponse = await this.httpClient.postForm<OrderResponse>(
+            API_ENDPOINTS.CANCEL_ORDER,
+            requestParams
+          );
+          if (retryResponse.code === 200) {
+            return {
+              status: true,
+              data: retryResponse,
+            };
+          }
+        }
+        return {
+          status: false,
+          error: "Authentication expired and refresh failed",
+        };
+      }
+
       if (response.code === 200) {
         return {
           status: true,
@@ -325,9 +481,47 @@ export class DipCoinPerpSDK {
    */
   async getAccountInfo(): Promise<SDKResponse<AccountInfo>> {
     try {
+      // Ensure authenticated before making request
+      const authResult = await this.authenticate();
+      if (!authResult.status) {
+        return {
+          status: false,
+          error: authResult.error || "Authentication failed",
+        };
+      }
+
       const response = await this.httpClient.get<AccountInfoResponse>(
         API_ENDPOINTS.GET_ACCOUNT_INFO
       );
+
+      // Handle JWT expiration (code 1000)
+      if (response.code === 1000) {
+        // Clear token and retry authentication
+        this.clearAuth();
+        const retryAuth = await this.authenticate();
+        if (retryAuth.status) {
+          // Retry the request
+          const retryResponse = await this.httpClient.get<AccountInfoResponse>(
+            API_ENDPOINTS.GET_ACCOUNT_INFO
+          );
+          if (retryResponse.code === 200 && retryResponse.data) {
+            return {
+              status: true,
+              data: {
+                walletBalance: retryResponse.data.walletBalance || "0",
+                totalUnrealizedProfit: retryResponse.data.totalUnrealizedProfit || "0",
+                accountValue: retryResponse.data.accountValue || "0",
+                freeCollateral: retryResponse.data.freeCollateral || "0",
+                totalMargin: retryResponse.data.totalMargin || "0",
+              },
+            };
+          }
+        }
+        return {
+          status: false,
+          error: "Authentication expired and refresh failed",
+        };
+      }
 
       if (response.code === 200 && response.data) {
         return {
@@ -361,6 +555,15 @@ export class DipCoinPerpSDK {
    */
   async getPositions(symbol?: string): Promise<SDKResponse<Position[]>> {
     try {
+      // Ensure authenticated before making request
+      const authResult = await this.authenticate();
+      if (!authResult.status) {
+        return {
+          status: false,
+          error: authResult.error || "Authentication failed",
+        };
+      }
+
       const params: Record<string, any> = {};
       if (symbol) {
         params.symbol = symbol;
@@ -370,6 +573,31 @@ export class DipCoinPerpSDK {
         API_ENDPOINTS.GET_POSITIONS,
         { params }
       );
+
+      // Handle JWT expiration
+      if (response.code === 1000) {
+        this.clearAuth();
+        const retryAuth = await this.authenticate();
+        if (retryAuth.status) {
+          const retryResponse = await this.httpClient.get<PositionsResponse>(
+            API_ENDPOINTS.GET_POSITIONS,
+            { params }
+          );
+          if (retryResponse.code === 200) {
+            const positions = Array.isArray(retryResponse.data)
+              ? retryResponse.data
+              : retryResponse.data?.data || [];
+            return {
+              status: true,
+              data: positions,
+            };
+          }
+        }
+        return {
+          status: false,
+          error: "Authentication expired and refresh failed",
+        };
+      }
 
       if (response.code === 200) {
         const positions = Array.isArray(response.data)
@@ -400,6 +628,15 @@ export class DipCoinPerpSDK {
    */
   async getOpenOrders(symbol?: string): Promise<SDKResponse<OpenOrder[]>> {
     try {
+      // Ensure authenticated before making request
+      const authResult = await this.authenticate();
+      if (!authResult.status) {
+        return {
+          status: false,
+          error: authResult.error || "Authentication failed",
+        };
+      }
+
       const params: Record<string, any> = {};
       if (symbol) {
         params.symbol = symbol;
@@ -409,6 +646,31 @@ export class DipCoinPerpSDK {
         API_ENDPOINTS.GET_OPEN_ORDERS,
         { params }
       );
+
+      // Handle JWT expiration
+      if (response.code === 1000) {
+        this.clearAuth();
+        const retryAuth = await this.authenticate();
+        if (retryAuth.status) {
+          const retryResponse = await this.httpClient.get<OpenOrdersResponse>(
+            API_ENDPOINTS.GET_OPEN_ORDERS,
+            { params }
+          );
+          if (retryResponse.code === 200) {
+            const orders = Array.isArray(retryResponse.data)
+              ? retryResponse.data
+              : retryResponse.data?.data || [];
+            return {
+              status: true,
+              data: orders,
+            };
+          }
+        }
+        return {
+          status: false,
+          error: "Authentication expired and refresh failed",
+        };
+      }
 
       if (response.code === 200) {
         const orders = Array.isArray(response.data)

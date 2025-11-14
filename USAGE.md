@@ -155,6 +155,28 @@ PRIVATE_KEY=your-private-key node dist/examples/basic-usage.js
 
 ## ✅ 验证功能
 
+### 0. 验证认证功能
+
+示例文件会首先进行认证：
+
+```typescript
+// 认证（Onboarding）
+const authResult = await sdk.authenticate();
+// 预期输出：
+// - ✅ Authentication successful!
+// - JWT Token: ...
+```
+
+**验证点：**
+- ✅ 能成功完成认证
+- ✅ 返回 JWT Token
+- ✅ Token 格式正确
+
+**如果认证失败：**
+- 检查私钥是否正确
+- 检查网络连接
+- 检查 API 地址配置
+
 ### 1. 验证账户信息查询
 
 示例文件会依次执行以下操作：

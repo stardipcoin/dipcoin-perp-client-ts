@@ -6,6 +6,7 @@ export * from "./sdk";
 export { HttpClient } from "./services/httpClient";
 export * from "./types";
 export * from "./utils";
+export * from "./constants";
 
 // Main SDK initialization function
 import { Keypair } from "@mysten/sui/cryptography";
