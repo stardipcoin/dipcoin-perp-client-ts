@@ -1,85 +1,122 @@
-# 示例文件说明
+# Example Files
 
-本目录包含 DipCoin Perpetual Trading SDK 的使用示例。
+This directory contains usage examples for the DipCoin Perpetual Trading SDK.
 
-## 文件列表
+## File List
 
 ### basic-usage.ts
 
-基础使用示例，演示 SDK 的核心功能：
+Basic usage example demonstrating core SDK features:
 
-- ✅ 初始化 SDK
-- ✅ 认证（Onboarding）
-- ✅ 查询账户信息
-- ✅ 查询仓位
-- ✅ 查询挂单
-- ✅ 获取交易对列表
-- ✅ 下单（Market Order）
-- ✅ 撤单
+- ✅ Initialize SDK
+- ✅ Authentication (Onboarding)
+- ✅ Deposit to bank account
+- ✅ Withdraw from bank account
+- ✅ Query account information
+- ✅ Query positions
+- ✅ Query open orders
+- ✅ Get trading pairs list
+- ✅ Place order (Market Order)
+- ✅ Cancel order
 
 ### limit-order.ts
 
-限价单示例，演示如何下 LIMIT 订单：
+Limit order example demonstrating how to place LIMIT orders:
 
-- ✅ 初始化 SDK
-- ✅ 认证（Onboarding）
-- ✅ 获取交易对和 PerpetualID
-- ✅ 查询账户信息
-- ✅ 下 LIMIT 订单（需要指定价格）
-- ✅ 查询挂单
+- ✅ Initialize SDK
+- ✅ Authentication (Onboarding)
+- ✅ Get trading pairs and PerpetualID
+- ✅ Query account information
+- ✅ Place LIMIT order (price required)
+- ✅ Query open orders
 
-## 运行示例
+## Running Examples
 
-### 前置条件
+### Prerequisites
 
-1. 安装项目依赖：
+1. Install project dependencies:
    ```bash
    npm install
    ```
 
-2. 配置环境变量：
+2. Configure environment variables:
    ```bash
-   # 复制示例文件
+   # Copy example file
    cp .env.example .env
    
-   # 编辑 .env 文件，填入你的私钥
+   # Edit .env file and add your private key
    # PRIVATE_KEY=your-private-key-here
    ```
 
-### 运行方法
+### Running Methods
 
 ```bash
-# 运行基础示例（Market Order）
+# Run basic example (Market Order)
 npm run example
 
-# 运行限价单示例
+# Run limit order example
 npm run example:limit
 
-# 或直接使用 tsx
+# Or use tsx directly
 tsx examples/basic-usage.ts
 tsx examples/limit-order.ts
 ```
 
-## 示例说明
+## Example Instructions
 
-### 1. 初始化 SDK
+### 1. Initialize SDK
 
 ```typescript
 const sdk = initDipCoinPerpSDK(privateKey, {
-  network: "testnet", // 或 "mainnet"
+  network: "testnet", // or "mainnet"
 });
 ```
 
-### 2. 查询账户信息
+### 2. Deposit and Withdraw
+
+#### Deposit to Bank Account
+
+Deposit USDC from wallet to exchange bank account for trading collateral:
+
+```typescript
+// Deposit 10 USDC to bank account
+await sdk.depositToBank(10);
+console.log("Deposit successful!");
+```
+
+**Note:**
+- This is an on-chain transaction on Sui blockchain
+- Ensure you have sufficient USDC balance in your wallet
+- After deposit, funds will be available in the exchange account for trading
+
+#### Withdraw from Bank Account
+
+Withdraw USDC from exchange bank account back to wallet:
+
+```typescript
+// Withdraw 5 USDC from bank account
+await sdk.withdrawFromBank(5);
+console.log("Withdraw successful!");
+```
+
+**Note:**
+- This is an on-chain transaction on Sui blockchain
+- Ensure you have sufficient balance in the exchange account
+- After withdrawal, funds will be returned to your wallet address
+
+### 3. Query Account Information
 
 ```typescript
 const accountInfo = await sdk.getAccountInfo();
 if (accountInfo.status) {
-  console.log("账户余额:", accountInfo.data?.walletBalance);
+  console.log("Wallet Balance:", accountInfo.data?.walletBalance);
+  console.log("Account Value:", accountInfo.data?.accountValue);
+  console.log("Free Collateral:", accountInfo.data?.freeCollateral);
+  console.log("Unrealized PnL:", accountInfo.data?.totalUnrealizedProfit);
 }
 ```
 
-### 3. 查询仓位
+### 4. Query Positions
 
 ```typescript
 const positions = await sdk.getPositions();
@@ -90,7 +127,7 @@ if (positions.status) {
 }
 ```
 
-### 4. 查询挂单
+### 5. Query Open Orders
 
 ```typescript
 const orders = await sdk.getOpenOrders();
@@ -101,12 +138,12 @@ if (orders.status) {
 }
 ```
 
-### 5. 下单
+### 6. Place Order
 
-#### Market Order（市价单）
+#### Market Order
 
 ```typescript
-// 首先获取 PerpetualID
+// First get PerpetualID
 const perpId = await sdk.getPerpetualID("BTC-PERP");
 
 const result = await sdk.placeOrder({
@@ -114,15 +151,15 @@ const result = await sdk.placeOrder({
   market: perpId, // REQUIRED: PerpetualID
   side: OrderSide.BUY,
   orderType: OrderType.MARKET,
-  quantity: "0.01", // 小数量测试
+  quantity: "0.01", // Small quantity for testing
   leverage: "10",
 });
 ```
 
-#### Limit Order（限价单）
+#### Limit Order
 
 ```typescript
-// 首先获取 PerpetualID
+// First get PerpetualID
 const perpId = await sdk.getPerpetualID("BTC-PERP");
 
 const result = await sdk.placeOrder({
@@ -136,9 +173,9 @@ const result = await sdk.placeOrder({
 });
 ```
 
-### 6. 撤单（需要手动启用）
+### 7. Cancel Order (Manual Enable Required)
 
-取消代码注释后可以测试撤单：
+Uncomment the code to test order cancellation:
 
 ```typescript
 const cancelResult = await sdk.cancelOrder({
@@ -147,14 +184,18 @@ const cancelResult = await sdk.cancelOrder({
 });
 ```
 
-## 注意事项
+## Important Notes
 
-1. **私钥安全**：永远不要将私钥提交到 Git 或公开代码
-2. **测试环境**：建议先在测试网（testnet）上测试
-3. **小数量测试**：下单时使用小数量进行测试
-4. **错误处理**：所有操作都应该检查返回的 `status` 字段
+1. **Private Key Security**: Never commit private keys to Git or public code
+2. **Test Environment**: It's recommended to test on testnet first
+3. **Small Quantity Testing**: Use small quantities when placing orders for testing
+4. **Error Handling**: All operations should check the returned `status` field
+5. **Deposit and Withdraw**:
+   - Both deposit and withdraw are on-chain transactions that require Gas fees
+   - Ensure sufficient USDC balance in wallet before depositing
+   - Ensure sufficient balance in exchange account before withdrawing
+   - It's recommended to test deposit and withdraw functions on testnet first
 
-## 更多示例
+## More Examples
 
-更多使用示例请参考项目根目录的 `README.md` 和 `USAGE.md`。
-
+For more usage examples, please refer to `README.md` and `USAGE.md` in the project root directory.

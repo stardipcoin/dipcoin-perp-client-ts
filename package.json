@@ -1,5 +1,5 @@
 {
-  "name": "@dipcoinlab/perp-sui-sdk",
+  "name": "@dipcoinlab/perp-client-ts",
   "version": "0.1.0",
   "description": "TypeScript SDK for DipCoin Perpetual Trading on Sui blockchain",
   "exports": {
@@ -16,7 +16,7 @@
   "files": [
     "dist"
   ],
-  "author": "",
+  "author": "dipcoinlab",
   "license": "Apache-2.0",
   "scripts": {
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",

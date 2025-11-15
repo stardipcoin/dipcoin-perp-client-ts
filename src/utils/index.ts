@@ -14,6 +14,10 @@ import { fromBase64 } from "@mysten/sui/utils";
 import BigNumber from "bignumber.js";
 import { parseSerializedSignature } from "@mysten/sui/cryptography";
 import { Buffer } from "buffer";
+import { Transaction } from "@mysten/sui/transactions";
+import { SuiClient } from "@mysten/sui/client";
+import fs from "fs";
+import path from "path";
 
 /**
  * Signature scheme types
@@ -82,10 +86,7 @@ export function fromExportedKeypair(
  * @param messageBytes Message bytes to sign
  * @returns Signature string
  */
-export async function signMessage(
-  keypair: Keypair,
-  messageBytes: Uint8Array
-): Promise<string> {
+export async function signMessage(keypair: Keypair, messageBytes: Uint8Array): Promise<string> {
   const signatureResult = await keypair.signPersonalMessage(messageBytes);
   // signPersonalMessage returns an object with a signature field
   // The signature field is a serialized signature string
@@ -101,7 +102,7 @@ export async function signMessage(
  * @returns Formatted signature string
  */
 export function buildSignature(signature: string, isKeyPair = false): string {
-  const signatureData = parseSerializedSignature(signature);
+  const signatureData: any = parseSerializedSignature(signature);
   let signatureHex = Buffer.from(signatureData.signature as any).toString("hex");
   let publicKey = Buffer.from(signatureData.publicKey as any).toString("base64");
   let flag = SignerTypes.KP_SECP256;
@@ -177,3 +178,22 @@ export function formatError(error: unknown): string {
   return String(error);
 }
 
+
+export function readFile(filePath: string): any {
+  // If path is relative and starts with ../, resolve it relative to project root
+  let resolvedPath = filePath;
+  if (filePath.startsWith("../") || filePath.startsWith("./")) {
+    // Resolve relative to project root (process.cwd())
+    resolvedPath = path.resolve(process.cwd(), filePath);
+  } else if (!path.isAbsolute(filePath)) {
+    // If it's a relative path without ../, also resolve relative to project root
+    resolvedPath = path.resolve(process.cwd(), filePath);
+  }
+  
+  if (!fs.existsSync(resolvedPath)) {
+    console.error(`Warning: Config file not found at ${resolvedPath}`);
+    return {};
+  }
+  
+  return JSON.parse(fs.readFileSync(resolvedPath).toString());
+}

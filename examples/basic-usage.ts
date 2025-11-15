@@ -3,9 +3,9 @@
 
 /**
  * Basic usage example for DipCoin Perpetual Trading SDK
- * 
+ *
  * This is a reference example. In production, never expose your private key.
- * 
+ *
  * Usage:
  *   1. Create a .env file in the project root with: PRIVATE_KEY=your-private-key
  *   2. Run: npm run example
@@ -38,6 +38,8 @@ async function main() {
   }
 
   const sdk = initDipCoinPerpSDK(privateKey, {
+
+    
     network: "testnet", // or "mainnet"
   });
 
@@ -54,6 +56,16 @@ async function main() {
       console.error("❌ Authentication failed:", authResult.error);
       return;
     }
+
+    // Deposit to bank
+    console.log("\n=== Deposit ===");
+    await sdk.depositToBank(500);
+    console.log("Deposit to bank success!");
+
+    // Withdraw from bank
+    console.log("\n=== Withdraw ===");
+    await sdk.withdrawFromBank(5);
+    console.log("Withdraw from bank success!");
 
     // 1. Get account information
     console.log("\n=== Getting Account Info ===");
@@ -115,7 +127,7 @@ async function main() {
     const symbolToTrade = "BTC-PERP";
     console.log(`\n=== Getting PerpetualID for ${symbolToTrade} ===`);
     const perpetualId = await sdk.getPerpetualID(symbolToTrade);
-    
+
     if (!perpetualId) {
       console.error(`❌ Error: Could not find PerpetualID for ${symbolToTrade}`);
       console.error("Available symbols:");
@@ -126,7 +138,7 @@ async function main() {
       }
       return;
     }
-    
+
     console.log(`✅ Found PerpetualID for ${symbolToTrade}: ${perpetualId}`);
 
     // 6. Place a market order
@@ -170,7 +182,7 @@ async function main() {
       // 8. Cancel an order if there are any open orders
       if (updatedOrders.data.length > 0) {
         console.log("\n=== Cancelling Order ===");
-        const orderToCancel = updatedOrders.data[1];
+        const orderToCancel = updatedOrders.data[0];
         console.log(`Attempting to cancel order: ${orderToCancel.symbol} - Hash: ${orderToCancel.hash}`);
         
         const cancelResult = await sdk.cancelOrder({
@@ -210,4 +222,3 @@ async function main() {
 if (require.main === module) {
   main().catch(console.error);
 }
-

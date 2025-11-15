@@ -100,6 +100,26 @@ if (accountInfo.status && accountInfo.data) {
 }
 ```
 
+### Deposit and Withdraw
+
+Deposit USDC to the exchange bank account for trading collateral, or withdraw USDC back to your wallet:
+
+```typescript
+// Deposit USDC to bank (deposit funds for trading)
+const depositResult = await sdk.depositToBank(100); // Deposit 100 USDC
+if (depositResult) {
+  console.log("Deposit successful!");
+}
+
+// Withdraw USDC from bank (withdraw funds to wallet)
+const withdrawResult = await sdk.withdrawFromBank(50); // Withdraw 50 USDC
+if (withdrawResult) {
+  console.log("Withdraw successful!");
+}
+```
+
+**Note:** These methods execute on-chain transactions on Sui blockchain. Make sure you have sufficient USDC balance in your wallet before depositing, and sufficient balance in your exchange account before withdrawing.
+
 ### Place Order
 
 Place a market or limit order:
@@ -267,6 +287,28 @@ Get current positions. Optionally filter by symbol.
 
 Get current open orders. Optionally filter by symbol.
 
+##### `depositToBank(amount: number): Promise<any>`
+
+Deposit USDC from wallet to exchange bank account for trading collateral.
+
+**Parameters:**
+- `amount`: Deposit amount in USDC (standard units, e.g., 100 means 100 USDC)
+
+**Returns:** On-chain transaction result
+
+**Note:** This is an on-chain transaction on Sui blockchain. Ensure you have sufficient USDC balance in your wallet.
+
+##### `withdrawFromBank(amount: number): Promise<any>`
+
+Withdraw USDC from exchange bank account back to wallet.
+
+**Parameters:**
+- `amount`: Withdraw amount in USDC (standard units, e.g., 50 means 50 USDC)
+
+**Returns:** On-chain transaction result
+
+**Note:** This is an on-chain transaction on Sui blockchain. Ensure you have sufficient balance in your exchange account.
+
 ## Types
 
 ### OrderSide
@@ -371,19 +413,23 @@ const sdk = initDipCoinPerpSDK("your-private-key", {
 });
 
 async function tradingFlow() {
-  // 1. Check account balance
+  // 1. Deposit funds to exchange bank account
+  console.log("Depositing 100 USDC to bank...");
+  await sdk.depositToBank(100);
+
+  // 2. Check account balance
   const account = await sdk.getAccountInfo();
   if (account.status) {
     console.log("Account Value:", account.data?.accountValue);
   }
 
-  // 2. Check existing positions
+  // 3. Check existing positions
   const positions = await sdk.getPositions();
   if (positions.status) {
     console.log("Current Positions:", positions.data);
   }
 
-  // 3. Place a market order
+  // 4. Place a market order
   const orderResult = await sdk.placeOrder({
     symbol: "BTC-PERP",
     side: OrderSide.BUY,
@@ -396,13 +442,13 @@ async function tradingFlow() {
     console.log("Order placed:", orderResult.data);
   }
 
-  // 4. Check open orders
+  // 5. Check open orders
   const openOrders = await sdk.getOpenOrders("BTC-PERP");
   if (openOrders.status) {
     console.log("Open Orders:", openOrders.data);
   }
 
-  // 5. Cancel an order (if needed)
+  // 6. Cancel an order (if needed)
   if (openOrders.status && openOrders.data && openOrders.data.length > 0) {
     const cancelResult = await sdk.cancelOrder({
       symbol: "BTC-PERP",
@@ -410,6 +456,10 @@ async function tradingFlow() {
     });
     console.log("Cancel result:", cancelResult);
   }
+
+  // 7. Withdraw funds from exchange bank account
+  console.log("Withdrawing 50 USDC from bank...");
+  await sdk.withdrawFromBank(50);
 }
 
 tradingFlow();

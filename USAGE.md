@@ -1,100 +1,100 @@
-# DipCoin Perpetual Trading SDK - 使用指南
+# DipCoin Perpetual Trading SDK - Usage Guide
 
-本文档详细说明如何在本地使用和运行 SDK。
+This document provides detailed instructions on how to use and run the SDK locally.
 
-## 📋 目录
+## 📋 Table of Contents
 
-1. [环境准备](#环境准备)
-2. [安装依赖](#安装依赖)
-3. [配置环境变量](#配置环境变量)
-4. [运行示例](#运行示例)
-5. [验证功能](#验证功能)
-6. [常见问题](#常见问题)
+1. [Environment Setup](#environment-setup)
+2. [Install Dependencies](#install-dependencies)
+3. [Configure Environment Variables](#configure-environment-variables)
+4. [Run Examples](#run-examples)
+5. [Verify Functionality](#verify-functionality)
+6. [Common Issues](#common-issues)
 
-## 🔧 环境准备
+## 🔧 Environment Setup
 
-### 系统要求
+### System Requirements
 
 - Node.js >= 16.0.0
-- npm >= 7.0.0 或 yarn >= 1.22.0
+- npm >= 7.0.0 or yarn >= 1.22.0
 - TypeScript >= 5.0.0
 
-### 检查环境
+### Check Environment
 
 ```bash
-# 检查 Node.js 版本
+# Check Node.js version
 node --version
 
-# 检查 npm 版本
+# Check npm version
 npm --version
 
-# 检查 TypeScript（如果已全局安装）
+# Check TypeScript (if installed globally)
 tsc --version
 ```
 
-## 📦 安装依赖
+## 📦 Install Dependencies
 
-### 1. 克隆或进入项目目录
+### 1. Clone or Navigate to Project Directory
 
 ```bash
 cd dipcoin-perp-client-ts
 ```
 
-### 2. 安装项目依赖
+### 2. Install Project Dependencies
 
 ```bash
-# 使用 npm
+# Using npm
 npm install
 
-# 或使用 yarn
+# Or using yarn
 yarn install
 ```
 
-### 3. 构建项目（可选，用于开发）
+### 3. Build Project (Optional, for development)
 
 ```bash
-# 构建 TypeScript 代码
+# Build TypeScript code
 npm run build
 
-# 或
+# Or
 yarn build
 ```
 
-## 🔐 配置环境变量
+## 🔐 Configure Environment Variables
 
-### 1. 创建环境变量文件
+### 1. Create Environment Variable File
 
-在项目根目录创建 `.env` 文件（如果不存在）：
+Create a `.env` file in the project root directory (if it doesn't exist):
 
 ```bash
-# 在项目根目录
+# In project root directory
 touch .env
 ```
 
-### 2. 配置私钥
+### 2. Configure Private Key
 
-编辑 `.env` 文件，添加你的私钥：
+Edit the `.env` file and add your private key:
 
 ```bash
-# .env 文件内容
+# .env file content
 PRIVATE_KEY=your-private-key-here
 ```
 
-**⚠️ 重要提示：**
-- 私钥格式：Sui 私钥字符串（例如：`suiprivkey1...`）
-- **永远不要**将 `.env` 文件提交到 Git
-- 使用测试网私钥进行测试，避免使用主网私钥
+**⚠️ Important Notes:**
+- Private key format: Sui private key string (e.g., `suiprivkey1...`)
+- **Never** commit the `.env` file to Git
+- Use testnet private keys for testing, avoid using mainnet private keys
 
-### 3. 私钥格式说明
+### 3. Private Key Format
 
-Sui 私钥支持以下格式：
+Sui private keys support the following formats:
 
-1. **标准格式**（推荐）：
+1. **Standard Format** (Recommended):
    ```
    suiprivkey1qzy3x9q7wq8q7wq8q7wq8q7wq8q7wq8q7wq8q7wq8q7wq8q7wq8q7wq8
    ```
 
-2. **Base64 格式**（旧格式）：
+2. **Base64 Format** (Legacy):
    ```json
    {
      "schema": "ED25519",
@@ -102,157 +102,157 @@ Sui 私钥支持以下格式：
    }
    ```
 
-### 4. 获取测试私钥
+### 4. Get Test Private Key
 
-如果你没有测试私钥，可以通过以下方式获取：
+If you don't have a test private key, you can obtain one through the following methods:
 
-1. **使用 Sui CLI**：
+1. **Using Sui CLI**:
    ```bash
    sui client new-address ed25519
    ```
 
-2. **使用 Sui 钱包**：
-   - 安装 Sui Wallet 浏览器扩展
-   - 创建新钱包
-   - 导出私钥
+2. **Using Sui Wallet**:
+   - Install Sui Wallet browser extension
+   - Create a new wallet
+   - Export private key
 
-## 🚀 运行示例
+## 🚀 Run Examples
 
-### 方法一：使用 npm script（推荐）
+### Method 1: Using npm script (Recommended)
 
 ```bash
-# 运行示例文件
+# Run example file
 npm run example
 
-# 或使用 yarn
+# Or using yarn
 yarn example
 ```
 
-这个命令会：
-1. 自动读取 `.env` 文件中的 `PRIVATE_KEY`
-2. 使用 `ts-node` 直接运行 TypeScript 文件
-3. 连接到测试网（testnet）
+This command will:
+1. Automatically read `PRIVATE_KEY` from `.env` file
+2. Use `ts-node` to directly run TypeScript files
+3. Connect to testnet
 
-### 方法二：直接使用 ts-node
+### Method 2: Directly Using ts-node
 
 ```bash
-# 设置环境变量并运行
+# Set environment variable and run
 PRIVATE_KEY=your-private-key ts-node --project tsconfig.example.json examples/basic-usage.ts
 
-# 或使用 dotenv（需要安装 dotenv-cli）
+# Or using dotenv (requires dotenv-cli)
 npx dotenv -e .env -- ts-node --project tsconfig.example.json examples/basic-usage.ts
 ```
 
-### 方法三：使用 Node.js 运行编译后的代码
+### Method 3: Using Node.js to Run Compiled Code
 
 ```bash
-# 1. 构建项目
+# 1. Build project
 npm run build
 
-# 2. 运行编译后的代码
+# 2. Run compiled code
 PRIVATE_KEY=your-private-key node dist/examples/basic-usage.js
 ```
 
-## ✅ 验证功能
+## ✅ Verify Functionality
 
-### 0. 验证认证功能
+### 0. Verify Authentication
 
-示例文件会首先进行认证：
+The example file will first perform authentication:
 
 ```typescript
-// 认证（Onboarding）
+// Authentication (Onboarding)
 const authResult = await sdk.authenticate();
-// 预期输出：
+// Expected output:
 // - ✅ Authentication successful!
 // - JWT Token: ...
 ```
 
-**验证点：**
-- ✅ 能成功完成认证
-- ✅ 返回 JWT Token
-- ✅ Token 格式正确
+**Verification Points:**
+- ✅ Successfully complete authentication
+- ✅ Return JWT Token
+- ✅ Token format is correct
 
-**如果认证失败：**
-- 检查私钥是否正确
-- 检查网络连接
-- 检查 API 地址配置
+**If authentication fails:**
+- Check if private key is correct
+- Check network connection
+- Check API address configuration
 
-### 1. 验证账户信息查询
+### 1. Verify Account Information Query
 
-示例文件会依次执行以下操作：
+The example file will execute the following operations in sequence:
 
 ```typescript
-// 1. 获取账户信息
+// 1. Get account information
 const accountInfo = await sdk.getAccountInfo();
-// 预期输出：
+// Expected output:
 // - Wallet Address: 0x...
 // - Wallet Balance: ...
 // - Account Value: ...
 // - Free Collateral: ...
 ```
 
-**验证点：**
-- ✅ 能成功获取账户信息
-- ✅ 返回的数据格式正确
-- ✅ 钱包地址与私钥匹配
+**Verification Points:**
+- ✅ Successfully get account information
+- ✅ Returned data format is correct
+- ✅ Wallet address matches private key
 
-### 2. 验证仓位查询
+### 2. Verify Position Query
 
 ```typescript
-// 2. 获取仓位
+// 2. Get positions
 const positions = await sdk.getPositions();
-// 预期输出：
+// Expected output:
 // - Found X positions
-// - 或空数组（如果没有仓位）
+// - Or empty array (if no positions)
 ```
 
-**验证点：**
-- ✅ 能成功查询仓位
-- ✅ 返回数组格式
-- ✅ 仓位数据字段完整
+**Verification Points:**
+- ✅ Successfully query positions
+- ✅ Return array format
+- ✅ Position data fields are complete
 
-### 3. 验证挂单查询
+### 3. Verify Open Orders Query
 
 ```typescript
-// 3. 获取挂单
+// 3. Get open orders
 const openOrders = await sdk.getOpenOrders();
-// 预期输出：
+// Expected output:
 // - Found X open orders
-// - 或空数组（如果没有挂单）
+// - Or empty array (if no open orders)
 ```
 
-**验证点：**
-- ✅ 能成功查询挂单
-- ✅ 返回数组格式
-- ✅ 订单数据字段完整
+**Verification Points:**
+- ✅ Successfully query open orders
+- ✅ Return array format
+- ✅ Order data fields are complete
 
-### 4. 验证下单功能（谨慎测试）
+### 4. Verify Order Placement (Test with Caution)
 
-⚠️ **注意：下单会实际执行交易，请谨慎测试！**
+⚠️ **Note: Placing orders will execute actual trades, please test with caution!**
 
-取消示例文件中的注释来测试下单：
+Uncomment the code in the example file to test order placement:
 
 ```typescript
-// 在 examples/basic-usage.ts 中取消注释
+// Uncomment in examples/basic-usage.ts
 console.log("\n=== Placing Market Order ===");
 const orderResult = await sdk.placeOrder({
   symbol: "BTC-PERP",
   side: OrderSide.BUY,
   orderType: OrderType.MARKET,
-  quantity: "0.01", // 小数量测试
+  quantity: "0.01", // Small quantity for testing
   leverage: "10",
 });
 ```
 
-**验证点：**
-- ✅ 订单成功提交
-- ✅ 返回订单 ID 或交易哈希
-- ✅ 订单出现在挂单列表中
+**Verification Points:**
+- ✅ Order successfully submitted
+- ✅ Return order ID or transaction hash
+- ✅ Order appears in open orders list
 
-### 5. 验证撤单功能
+### 5. Verify Order Cancellation
 
 ```typescript
-// 取消示例文件中的撤单代码注释
+// Uncomment order cancellation code in example file
 if (openOrders.status && openOrders.data && openOrders.data.length > 0) {
   const cancelResult = await sdk.cancelOrder({
     symbol: openOrders.data[0].symbol,
@@ -261,154 +261,154 @@ if (openOrders.status && openOrders.data && openOrders.data.length > 0) {
 }
 ```
 
-**验证点：**
-- ✅ 撤单成功
-- ✅ 订单从挂单列表中消失
+**Verification Points:**
+- ✅ Order cancellation successful
+- ✅ Order disappears from open orders list
 
-## 📝 完整测试流程
+## 📝 Complete Testing Workflow
 
-### 步骤 1：基础功能测试
+### Step 1: Basic Functionality Test
 
 ```bash
-# 1. 确保环境变量已配置
+# 1. Ensure environment variables are configured
 cat .env | grep PRIVATE_KEY
 
-# 2. 运行示例（只查询，不下单）
+# 2. Run example (query only, no order placement)
 npm run example
 ```
 
-**预期结果：**
-- 显示钱包地址
-- 显示账户信息
-- 显示仓位列表（可能为空）
-- 显示挂单列表（可能为空）
+**Expected Results:**
+- Display wallet address
+- Display account information
+- Display positions list (may be empty)
+- Display open orders list (may be empty)
 
-### 步骤 2：下单测试（可选）
+### Step 2: Order Placement Test (Optional)
 
-1. 编辑 `examples/basic-usage.ts`
-2. 取消下单代码的注释
-3. 修改为小数量测试（如 0.01）
-4. 运行示例：
+1. Edit `examples/basic-usage.ts`
+2. Uncomment order placement code
+3. Modify to use small quantity for testing (e.g., 0.01)
+4. Run example:
 
 ```bash
 npm run example
 ```
 
-5. 验证订单是否成功：
-   - 检查返回的订单结果
-   - 再次运行示例查看挂单列表
+5. Verify if order was successful:
+   - Check returned order result
+   - Run example again to check open orders list
 
-### 步骤 3：撤单测试（可选）
+### Step 3: Order Cancellation Test (Optional)
 
-1. 确保有挂单存在
-2. 取消撤单代码的注释
-3. 运行示例：
+1. Ensure there are open orders
+2. Uncomment order cancellation code
+3. Run example:
 
 ```bash
 npm run example
 ```
 
-4. 验证订单是否被取消：
-   - 检查撤单返回结果
-   - 再次运行示例确认挂单已消失
+4. Verify if order was cancelled:
+   - Check cancellation return result
+   - Run example again to confirm order has disappeared
 
-## 🐛 常见问题
+## 🐛 Common Issues
 
-### 问题 1：找不到 PRIVATE_KEY 环境变量
+### Issue 1: PRIVATE_KEY Environment Variable Not Found
 
-**错误信息：**
+**Error Message:**
 ```
 Please set PRIVATE_KEY environment variable
 ```
 
-**解决方法：**
-1. 检查 `.env` 文件是否存在
-2. 确认 `.env` 文件中有 `PRIVATE_KEY=...` 配置
-3. 确认 `.env` 文件在项目根目录
+**Solution:**
+1. Check if `.env` file exists
+2. Confirm `.env` file contains `PRIVATE_KEY=...` configuration
+3. Confirm `.env` file is in project root directory
 
-### 问题 2：私钥格式错误
+### Issue 2: Invalid Private Key Format
 
-**错误信息：**
+**Error Message:**
 ```
 Invalid secret key format
 ```
 
-**解决方法：**
-1. 确认私钥格式正确（Sui 标准格式）
-2. 检查私钥是否完整（没有截断）
-3. 确认私钥没有多余的空格或换行
+**Solution:**
+1. Confirm private key format is correct (Sui standard format)
+2. Check if private key is complete (not truncated)
+3. Confirm private key has no extra spaces or line breaks
 
-### 问题 3：网络连接错误
+### Issue 3: Network Connection Error
 
-**错误信息：**
+**Error Message:**
 ```
 Request failed / Network error
 ```
 
-**解决方法：**
-1. 检查网络连接
-2. 确认 API 地址正确（测试网/主网）
-3. 检查防火墙设置
-4. 尝试使用 VPN（如果在受限网络环境）
+**Solution:**
+1. Check network connection
+2. Confirm API address is correct (testnet/mainnet)
+3. Check firewall settings
+4. Try using VPN (if in restricted network environment)
 
-### 问题 4：账户未激活（Onboarding）
+### Issue 4: Account Not Activated (Onboarding)
 
-**错误信息：**
+**Error Message:**
 ```
 Failed to get account info: ...
 ```
 
-**解决方法：**
-1. 确认账户已完成 Onboarding
-2. 在测试网环境中首次使用需要完成身份验证
-3. 检查账户是否有足够的余额
+**Solution:**
+1. Confirm account has completed Onboarding
+2. First-time use in testnet environment requires identity verification
+3. Check if account has sufficient balance
 
-### 问题 5：TypeScript 编译错误
+### Issue 5: TypeScript Compilation Error
 
-**错误信息：**
+**Error Message:**
 ```
 Cannot find module '...'
 ```
 
-**解决方法：**
-1. 重新安装依赖：`npm install`
-2. 检查 `tsconfig.json` 配置
-3. 确认所有依赖都已正确安装
+**Solution:**
+1. Reinstall dependencies: `npm install`
+2. Check `tsconfig.json` configuration
+3. Confirm all dependencies are correctly installed
 
-### 问题 6：签名错误
+### Issue 6: Signature Error
 
-**错误信息：**
+**Error Message:**
 ```
 Signature verification failed
 ```
 
-**解决方法：**
-1. 确认私钥与钱包地址匹配
-2. 检查私钥格式是否正确
-3. 确认使用的是正确的网络（testnet/mainnet）
+**Solution:**
+1. Confirm private key matches wallet address
+2. Check if private key format is correct
+3. Confirm you're using the correct network (testnet/mainnet)
 
-## 🔍 调试技巧
+## 🔍 Debugging Tips
 
-### 1. 启用详细日志
+### 1. Enable Detailed Logging
 
-在代码中添加日志：
+Add logging in code:
 
 ```typescript
-// 在 sdk.ts 或示例文件中
+// In sdk.ts or example file
 console.log("Request params:", requestParams);
 console.log("Response:", response);
 ```
 
-### 2. 使用调试器
+### 2. Use Debugger
 
 ```bash
-# 使用 Node.js 调试器
+# Use Node.js debugger
 node --inspect-brk node_modules/.bin/ts-node --project tsconfig.example.json examples/basic-usage.ts
 ```
 
-### 3. 检查网络请求
+### 3. Check Network Requests
 
-在 `src/services/httpClient.ts` 中添加请求日志：
+Add request logging in `src/services/httpClient.ts`:
 
 ```typescript
 this.instance.interceptors.request.use((config) => {
@@ -417,25 +417,24 @@ this.instance.interceptors.request.use((config) => {
 });
 ```
 
-## 📚 更多示例
+## 📚 More Examples
 
-查看 `examples/` 目录获取更多示例代码。
+Check the `examples/` directory for more example code.
 
-## 🆘 获取帮助
+## 🆘 Get Help
 
-如果遇到问题：
+If you encounter issues:
 
-1. 检查本文档的常见问题部分
-2. 查看项目 README.md
-3. 检查 API 文档
-4. 提交 Issue 到项目仓库
+1. Check the Common Issues section of this document
+2. Review project README.md
+3. Check API documentation
+4. Submit an Issue to the project repository
 
-## ⚠️ 安全提示
+## ⚠️ Security Tips
 
-1. **永远不要**将私钥提交到 Git
-2. **永远不要**在代码中硬编码私钥
-3. 使用 `.env` 文件管理敏感信息
-4. 确保 `.env` 在 `.gitignore` 中
-5. 测试时使用测试网私钥
-6. 生产环境使用环境变量或密钥管理服务
-
+1. **Never** commit private keys to Git
+2. **Never** hardcode private keys in code
+3. Use `.env` file to manage sensitive information
+4. Ensure `.env` is in `.gitignore`
+5. Use testnet private keys for testing
+6. Use environment variables or key management services in production

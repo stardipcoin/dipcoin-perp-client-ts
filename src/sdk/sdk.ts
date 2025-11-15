@@ -1,8 +1,8 @@
 // Copyright (c) 2025 Dipcoin LLC
 // SPDX-License-Identifier: Apache-2.0
 
-import { OrderSigner } from "@dipcoinlab/perp-ts-library";
 import { Keypair } from "@mysten/sui/cryptography";
+import { ORDER_TYPE, OrderSigner, ExchangeOnChain, network } from "@dipcoinlab/perp-ts-library";
 import BigNumber from "bignumber.js";
 import { API_ENDPOINTS, ONBOARDING_MESSAGE } from "../constants";
 import { HttpClient } from "../services/httpClient";
@@ -21,6 +21,7 @@ import {
   SDKResponse,
   TradingPair,
   TradingPairsResponse,
+  OrderSide,
 } from "../types";
 import {
   formatError,
@@ -28,7 +29,10 @@ import {
   formatNormalToWeiBN,
   fromExportedKeypair,
   signMessage,
+  readFile,
 } from "../utils";
+import { SuiClient, getFullnodeUrl } from "@mysten/sui/client";
+import { DECIMALS } from "../constants";
 
 /**
  * DipCoin Perpetual Trading SDK
@@ -40,16 +44,14 @@ export class DipCoinPerpSDK {
   private options: DipCoinPerpSDKOptions;
   private jwtToken?: string;
   private isAuthenticating: boolean = false;
+  private exchangeOnChain: ExchangeOnChain;
 
   /**
    * Initialize SDK
    * @param privateKey Private key string or keypair
    * @param options SDK configuration options
    */
-  constructor(
-    privateKey: string | Keypair,
-    options: DipCoinPerpSDKOptions
-  ) {
+  constructor(privateKey: string | Keypair, options: DipCoinPerpSDKOptions) {
     this.options = options;
     this.httpClient = new HttpClient(options.apiBaseUrl);
 
@@ -63,6 +65,11 @@ export class DipCoinPerpSDK {
     // Get wallet address
     this.walletAddress = this.keypair.getPublicKey().toSuiAddress();
     this.httpClient.setWalletAddress(this.walletAddress);
+    this.exchangeOnChain = new ExchangeOnChain(
+      readFile(`src/config/deployed/${options.network}/main_contract.json`),
+      new SuiClient({ url: getFullnodeUrl(options.network) }),
+      this.keypair
+    );
   }
 
   /**
@@ -115,14 +122,11 @@ export class DipCoinPerpSDK {
       const signature = await signMessage(this.keypair, messageBytes);
 
       // 3. Call authorize endpoint to get JWT token
-      const response = await this.httpClient.post<{ token: string }>(
-        API_ENDPOINTS.AUTHORIZE,
-        {
-          userAddress: this.walletAddress,
-          isTermAccepted: true,
-          signature: signature,
-        }
-      );
+      const response = await this.httpClient.post<{ token: string }>(API_ENDPOINTS.AUTHORIZE, {
+        userAddress: this.walletAddress,
+        isTermAccepted: true,
+        signature: signature,
+      });
 
       if (response.code === 200 && response.data?.token) {
         this.jwtToken = response.data.token;
@@ -186,7 +190,13 @@ export class DipCoinPerpSDK {
       }
 
       // Validate required parameters
-      if (!params.symbol || !params.side || !params.orderType || !params.quantity || !params.leverage) {
+      if (
+        !params.symbol ||
+        !params.side ||
+        !params.orderType ||
+        !params.quantity ||
+        !params.leverage
+      ) {
         throw new Error("Missing required order parameters");
       }
 
@@ -232,7 +242,7 @@ export class DipCoinPerpSDK {
       const order = {
         market: market,
         creator: this.walletAddress,
-        isLong: side === "BUY",
+        isLong: side === OrderSide.BUY,
         reduceOnly,
         postOnly: false,
         orderbookOnly: true,
@@ -594,10 +604,9 @@ export class DipCoinPerpSDK {
         params.symbol = symbol;
       }
 
-      const response = await this.httpClient.get<PositionsResponse>(
-        API_ENDPOINTS.GET_POSITIONS,
-        { params }
-      );
+      const response = await this.httpClient.get<PositionsResponse>(API_ENDPOINTS.GET_POSITIONS, {
+        params,
+      });
 
       // Handle JWT expiration
       if (response.code === 1000) {
@@ -625,9 +634,7 @@ export class DipCoinPerpSDK {
       }
 
       if (response.code === 200) {
-        const positions = Array.isArray(response.data)
-          ? response.data
-          : response.data?.data || [];
+        const positions = Array.isArray(response.data) ? response.data : response.data?.data || [];
         return {
           status: true,
           data: positions,
@@ -691,9 +698,7 @@ export class DipCoinPerpSDK {
       }
 
       if (response.code === 200) {
-        const pairs = Array.isArray(response.data)
-          ? response.data
-          : response.data?.data || [];
+        const pairs = Array.isArray(response.data) ? response.data : response.data?.data || [];
         return {
           status: true,
           data: pairs,
@@ -783,9 +788,7 @@ export class DipCoinPerpSDK {
       }
 
       if (response.code === 200) {
-        const orders = Array.isArray(response.data)
-          ? response.data
-          : response.data?.data || [];
+        const orders = Array.isArray(response.data) ? response.data : response.data?.data || [];
         return {
           status: true,
           data: orders,
@@ -803,5 +806,44 @@ export class DipCoinPerpSDK {
       };
     }
   }
-}
 
+  /**
+   * Deposit to bank (fund account)
+   * Deposit USDC from wallet to exchange bank account for trading collateral
+   * @param amount Deposit amount in USDC (standard units, e.g., 10 means 10 USDC)
+   * @returns On-chain transaction result
+   * @example
+   * ```typescript
+   * const result = await sdk.depositToBank(100); // Deposit 100 USDC
+   * ```
+   */
+  async depositToBank(amount: number) {
+    return await this.exchangeOnChain.depositToBank(
+      {
+        amount: formatNormalToWei(amount, DECIMALS.USDC),
+        accountAddress: this.address,
+      },
+      this.keypair
+    );
+  }
+
+  /**
+   * Withdraw from bank (withdraw funds)
+   * Withdraw USDC from exchange bank account back to wallet
+   * @param amount Withdraw amount in USDC (standard units, e.g., 50 means 50 USDC)
+   * @returns On-chain transaction result
+   * @example
+   * ```typescript
+   * const result = await sdk.withdrawFromBank(50); // Withdraw 50 USDC
+   * ```
+   */
+  async withdrawFromBank(amount: number) {
+    return await this.exchangeOnChain.withdrawFromBank(
+      {
+        amount: formatNormalToWei(amount, DECIMALS.USDC),
+        accountAddress: this.address,
+      },
+      this.keypair
+    );
+  }
+}
