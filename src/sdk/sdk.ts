@@ -316,17 +316,19 @@ export class DipCoinPerpSDK {
       }
 
       // Build request parameters
+      // Match ts-frontend: always use formatNormalToWei(price) regardless of order type
+      // For MARKET orders, price will be empty string which converts to "0"
       const requestParams: Record<string, any> = {
         symbol,
         side,
         orderType,
         quantity: formatNormalToWei(quantity),
-        price: orderType === OrderType.LIMIT && price ? formatNormalToWei(price) : "0",
+        price: formatNormalToWei(price || ""), // Match ts-frontend: always use priceWei
         leverage: formatNormalToWei(leverage),
         salt: saltBN.toString(),
         creator: this.walletAddress,
         clientId,
-        reduceOnly,
+        reduceOnly, // Will be sent as boolean in JSON
         orderSignature,
       };
 
@@ -335,8 +337,11 @@ export class DipCoinPerpSDK {
         requestParams.tpOrderSignature = tpOrderSignature;
         requestParams.tpTriggerPrice = formatNormalToWei(tpTriggerPrice);
         requestParams.tpOrderType = tpOrderType;
+        // Match ts-frontend: use formatNormalToWei('') for MARKET orders, not empty string
         requestParams.tpOrderPrice =
-          tpOrderType === OrderType.LIMIT ? formatNormalToWei(tpOrderPrice || tpTriggerPrice) : "";
+          tpOrderType === OrderType.LIMIT
+            ? formatNormalToWei(tpOrderPrice || tpTriggerPrice)
+            : formatNormalToWei("");
         requestParams.tpSalt = tpSalt?.toString();
         requestParams.triggerWay = "oracle";
       }
@@ -346,17 +351,21 @@ export class DipCoinPerpSDK {
         requestParams.slOrderSignature = slOrderSignature;
         requestParams.slTriggerPrice = formatNormalToWei(slTriggerPrice);
         requestParams.slOrderType = slOrderType;
+        // Match ts-frontend: use formatNormalToWei('') for MARKET orders, not empty string
         requestParams.slOrderPrice =
-          slOrderType === OrderType.LIMIT ? formatNormalToWei(slOrderPrice || slTriggerPrice) : "";
+          slOrderType === OrderType.LIMIT
+            ? formatNormalToWei(slOrderPrice || slTriggerPrice)
+            : formatNormalToWei("");
         requestParams.slSalt = slSalt?.toString();
       }
 
       // Send request
-      const response = await this.httpClient.postForm<OrderResponse>(
+      // Match ts-frontend and Java: use JSON POST request, not form-urlencoded
+      // ts-frontend's postForm actually sends JSON with Content-Type: application/json
+      const response = await this.httpClient.post<OrderResponse>(
         API_ENDPOINTS.PLACE_ORDER,
         requestParams
       );
-      console.log("🚀 ~ DipCoinPerpSDK ~ placeOrder ~ requestParams:", requestParams)
 
       // Handle JWT expiration
       if (response.code === 1000) {
@@ -364,7 +373,7 @@ export class DipCoinPerpSDK {
         const retryAuth = await this.authenticate();
         if (retryAuth.status) {
           // Retry the request
-          const retryResponse = await this.httpClient.postForm<OrderResponse>(
+          const retryResponse = await this.httpClient.post<OrderResponse>(
             API_ENDPOINTS.PLACE_ORDER,
             requestParams
           );
@@ -439,7 +448,9 @@ export class DipCoinPerpSDK {
       };
 
       // Send request
-      const response = await this.httpClient.postForm<OrderResponse>(
+      // Match ts-frontend and Java: use JSON POST request, not form-urlencoded
+      // ts-frontend's postForm actually sends JSON with Content-Type: application/json
+      const response = await this.httpClient.post<OrderResponse>(
         API_ENDPOINTS.CANCEL_ORDER,
         requestParams
       );
@@ -450,7 +461,7 @@ export class DipCoinPerpSDK {
         const retryAuth = await this.authenticate();
         if (retryAuth.status) {
           // Retry the request
-          const retryResponse = await this.httpClient.postForm<OrderResponse>(
+          const retryResponse = await this.httpClient.post<OrderResponse>(
             API_ENDPOINTS.CANCEL_ORDER,
             requestParams
           );

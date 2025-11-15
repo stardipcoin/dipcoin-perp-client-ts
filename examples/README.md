@@ -9,11 +9,24 @@
 基础使用示例，演示 SDK 的核心功能：
 
 - ✅ 初始化 SDK
+- ✅ 认证（Onboarding）
 - ✅ 查询账户信息
 - ✅ 查询仓位
 - ✅ 查询挂单
-- ⚠️ 下单（已注释，需要手动启用）
-- ⚠️ 撤单（已注释，需要手动启用）
+- ✅ 获取交易对列表
+- ✅ 下单（Market Order）
+- ✅ 撤单
+
+### limit-order.ts
+
+限价单示例，演示如何下 LIMIT 订单：
+
+- ✅ 初始化 SDK
+- ✅ 认证（Onboarding）
+- ✅ 获取交易对和 PerpetualID
+- ✅ 查询账户信息
+- ✅ 下 LIMIT 订单（需要指定价格）
+- ✅ 查询挂单
 
 ## 运行示例
 
@@ -36,11 +49,15 @@
 ### 运行方法
 
 ```bash
-# 使用 npm script（推荐）
+# 运行基础示例（Market Order）
 npm run example
 
-# 或直接使用 ts-node
-ts-node --project tsconfig.example.json examples/basic-usage.ts
+# 运行限价单示例
+npm run example:limit
+
+# 或直接使用 tsx
+tsx examples/basic-usage.ts
+tsx examples/limit-order.ts
 ```
 
 ## 示例说明
@@ -84,16 +101,37 @@ if (orders.status) {
 }
 ```
 
-### 5. 下单（需要手动启用）
+### 5. 下单
 
-取消代码注释后可以测试下单：
+#### Market Order（市价单）
 
 ```typescript
+// 首先获取 PerpetualID
+const perpId = await sdk.getPerpetualID("BTC-PERP");
+
 const result = await sdk.placeOrder({
   symbol: "BTC-PERP",
+  market: perpId, // REQUIRED: PerpetualID
   side: OrderSide.BUY,
   orderType: OrderType.MARKET,
   quantity: "0.01", // 小数量测试
+  leverage: "10",
+});
+```
+
+#### Limit Order（限价单）
+
+```typescript
+// 首先获取 PerpetualID
+const perpId = await sdk.getPerpetualID("BTC-PERP");
+
+const result = await sdk.placeOrder({
+  symbol: "BTC-PERP",
+  market: perpId, // REQUIRED: PerpetualID
+  side: OrderSide.BUY,
+  orderType: OrderType.LIMIT,
+  price: "50000", // REQUIRED for LIMIT orders
+  quantity: "0.01",
   leverage: "10",
 });
 ```

@@ -125,13 +125,30 @@ export function buildSignature(signature: string, isKeyPair = false): string {
 
 /**
  * Format number to wei (with decimals)
+ * Match ts-frontend: handles empty string and invalid values
  * @param value Value to format
  * @param decimals Number of decimals (default 18)
  * @returns Formatted string
  */
 export function formatNormalToWei(value: number | string, decimals = 18): string {
-  const bn = new BigNumber(value);
-  return bn.multipliedBy(new BigNumber(10).pow(decimals)).toFixed(0);
+  // Match ts-frontend: return '0' for empty or invalid values
+  if (!value && value !== 0) return "0";
+
+  try {
+    const normalValue = new BigNumber(value);
+
+    // Check if valid number
+    if (normalValue.isNaN()) return "0";
+
+    // Multiply by 10^decimals
+    const weiValue = normalValue.multipliedBy(new BigNumber(10).pow(decimals));
+
+    // Return integer part
+    return weiValue.integerValue(BigNumber.ROUND_DOWN).toString(10);
+  } catch (error) {
+    console.error("Error converting normal value to wei:", error);
+    return "0";
+  }
 }
 
 /**
