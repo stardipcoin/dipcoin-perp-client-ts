@@ -216,12 +216,6 @@ export class DipCoinPerpSDK {
         market,
         reduceOnly = false,
         clientId = "",
-        tpTriggerPrice,
-        tpOrderType = OrderType.MARKET,
-        tpOrderPrice = "",
-        slTriggerPrice,
-        slOrderType = OrderType.MARKET,
-        slOrderPrice = "",
       } = params;
 
       // Validate market parameter - it must be a PerpetualID, not a symbol
@@ -256,76 +250,12 @@ export class DipCoinPerpSDK {
         salt: saltBN,
       };
 
-      // Build TP order if trigger price is provided
-      let tpOrder = null;
-      let tpSalt = null;
-      if (tpTriggerPrice) {
-        tpSalt = new BigNumber(Date.now() + 1);
-        tpOrder = {
-          market: order.market,
-          creator: this.walletAddress,
-          isLong: !order.isLong,
-          reduceOnly: true,
-          postOnly: false,
-          orderbookOnly: true,
-          ioc: false,
-          quantity: quantityBN,
-          price:
-            tpOrderType === OrderType.LIMIT
-              ? formatNormalToWeiBN(tpOrderPrice || tpTriggerPrice)
-              : formatNormalToWeiBN(""), // Use formatNormalToWeiBN('') for MARKET orders to match ts-frontend
-          leverage: leverageBN,
-          expiration: expirationBN,
-          salt: tpSalt,
-        };
-      }
-
-      // Build SL order if trigger price is provided
-      let slOrder = null;
-      let slSalt = null;
-      if (slTriggerPrice) {
-        slSalt = new BigNumber(Date.now() + 2);
-        slOrder = {
-          market: order.market,
-          creator: this.walletAddress,
-          isLong: !order.isLong,
-          reduceOnly: true,
-          postOnly: false,
-          orderbookOnly: true,
-          ioc: false,
-          quantity: quantityBN,
-          price:
-            slOrderType === OrderType.LIMIT
-              ? formatNormalToWeiBN(slOrderPrice || slTriggerPrice)
-              : formatNormalToWeiBN(""), // Use formatNormalToWeiBN('') for MARKET orders to match ts-frontend
-          leverage: leverageBN,
-          expiration: expirationBN,
-          salt: slSalt,
-        };
-      }
-
       // Generate order message for signing
       const orderMsg = OrderSigner.getOrderMessageForUIWallet(order);
       const orderHashBytes = new TextEncoder().encode(orderMsg);
 
       // Sign main order
       const orderSignature = await signMessage(this.keypair, orderHashBytes);
-
-      // Sign TP order if exists
-      let tpOrderSignature: string | undefined;
-      if (tpOrder) {
-        const tpOrderMsg = OrderSigner.getOrderMessageForUIWallet(tpOrder);
-        const tpOrderHashBytes = new TextEncoder().encode(tpOrderMsg);
-        tpOrderSignature = await signMessage(this.keypair, tpOrderHashBytes);
-      }
-
-      // Sign SL order if exists
-      let slOrderSignature: string | undefined;
-      if (slOrder) {
-        const slOrderMsg = OrderSigner.getOrderMessageForUIWallet(slOrder);
-        const slOrderHashBytes = new TextEncoder().encode(slOrderMsg);
-        slOrderSignature = await signMessage(this.keypair, slOrderHashBytes);
-      }
 
       // Build request parameters
       // Match ts-frontend: always use formatNormalToWei(price) regardless of order type
@@ -343,33 +273,6 @@ export class DipCoinPerpSDK {
         reduceOnly, // Will be sent as boolean in JSON
         orderSignature,
       };
-
-      // Add TP parameters if exists
-      if (tpTriggerPrice && tpOrderSignature) {
-        requestParams.tpOrderSignature = tpOrderSignature;
-        requestParams.tpTriggerPrice = formatNormalToWei(tpTriggerPrice);
-        requestParams.tpOrderType = tpOrderType;
-        // Match ts-frontend: use formatNormalToWei('') for MARKET orders, not empty string
-        requestParams.tpOrderPrice =
-          tpOrderType === OrderType.LIMIT
-            ? formatNormalToWei(tpOrderPrice || tpTriggerPrice)
-            : formatNormalToWei("");
-        requestParams.tpSalt = tpSalt?.toString();
-        requestParams.triggerWay = "oracle";
-      }
-
-      // Add SL parameters if exists
-      if (slTriggerPrice && slOrderSignature) {
-        requestParams.slOrderSignature = slOrderSignature;
-        requestParams.slTriggerPrice = formatNormalToWei(slTriggerPrice);
-        requestParams.slOrderType = slOrderType;
-        // Match ts-frontend: use formatNormalToWei('') for MARKET orders, not empty string
-        requestParams.slOrderPrice =
-          slOrderType === OrderType.LIMIT
-            ? formatNormalToWei(slOrderPrice || slTriggerPrice)
-            : formatNormalToWei("");
-        requestParams.slSalt = slSalt?.toString();
-      }
 
       // Send request
       // Match ts-frontend and Java: use JSON POST request, not form-urlencoded

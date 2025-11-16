@@ -154,26 +154,6 @@ if (result.status) {
 }
 ```
 
-### Place Order with TP/SL
-
-Place an order with take profit and stop loss:
-
-```typescript
-const result = await sdk.placeOrder({
-  symbol: "BTC-PERP",
-  side: OrderSide.BUY,
-  orderType: OrderType.MARKET,
-  quantity: "0.1",
-  leverage: "10",
-  // Take profit
-  tpTriggerPrice: "55000",
-  tpOrderType: OrderType.MARKET,
-  // Stop loss
-  slTriggerPrice: "45000",
-  slOrderType: OrderType.MARKET,
-});
-```
-
 ### Cancel Order
 
 Cancel one or more orders:
@@ -259,12 +239,6 @@ Place a new order.
 - `market`: Optional market ID
 - `reduceOnly`: Optional, only reduce position
 - `clientId`: Optional client order ID
-- `tpTriggerPrice`: Optional take profit trigger price
-- `tpOrderType`: Optional take profit order type
-- `tpOrderPrice`: Optional take profit order price
-- `slTriggerPrice`: Optional stop loss trigger price
-- `slOrderType`: Optional stop loss order type
-- `slOrderPrice`: Optional stop loss order price
 
 ##### `cancelOrder(params: CancelOrderParams): Promise<SDKResponse<OrderResponse>>`
 

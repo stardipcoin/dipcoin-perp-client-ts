@@ -72,18 +72,6 @@ export interface PlaceOrderParams {
   reduceOnly?: boolean;
   /** Client order ID for tracking */
   clientId?: string;
-  /** Take profit trigger price */
-  tpTriggerPrice?: number | string;
-  /** Take profit order type */
-  tpOrderType?: OrderType;
-  /** Take profit order price */
-  tpOrderPrice?: number | string;
-  /** Stop loss trigger price */
-  slTriggerPrice?: number | string;
-  /** Stop loss order type */
-  slOrderType?: OrderType;
-  /** Stop loss order price */
-  slOrderPrice?: number | string;
 }
 
 /**
@@ -175,12 +163,6 @@ export interface Position {
   funding: string;
   /** Reducible position quantity */
   positionQtyReducible: string;
-  /** Take profit price */
-  tpPrice?: string;
-  /** Stop loss price */
-  slPrice?: string;
-  /** TP/SL order count */
-  tpslNum?: number;
 }
 
 /**
