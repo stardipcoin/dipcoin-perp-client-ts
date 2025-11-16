@@ -59,7 +59,7 @@ async function main() {
 
     // Deposit to bank
     console.log("\n=== Deposit ===");
-    await sdk.depositToBank(500);
+    await sdk.depositToBank(10);
     console.log("Deposit to bank success!");
 
     // Withdraw from bank

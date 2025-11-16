@@ -5,9 +5,9 @@ TypeScript SDK for DipCoin Perpetual Trading on Sui blockchain.
 ## 📦 Installation
 
 ```bash
-npm install @dipcoinlab/perp-sui-sdk
+npm install @dipcoinlab/perp-client-ts
 # or
-yarn add @dipcoinlab/perp-sui-sdk
+yarn add @dipcoinlab/perp-client-ts
 ```
 
 ## 🚀 Quick Start
@@ -39,7 +39,7 @@ For detailed usage instructions, see [USAGE.md](./USAGE.md).
 ### Initialize SDK
 
 ```typescript
-import { initDipCoinPerpSDK } from "@dipcoinlab/perp-sui-sdk";
+import { initDipCoinPerpSDK } from "@dipcoinlab/perp-client-ts";
 
 // Initialize with private key string
 const sdk = initDipCoinPerpSDK("your-private-key-string", {
@@ -125,7 +125,7 @@ if (withdrawResult) {
 Place a market or limit order:
 
 ```typescript
-import { OrderSide, OrderType } from "@dipcoinlab/perp-sui-sdk";
+import { OrderSide, OrderType } from "@dipcoinlab/perp-client-ts";
 
 // Market order
 const result = await sdk.placeOrder({
@@ -405,7 +405,7 @@ if (result.status) {
 ### Complete Trading Flow
 
 ```typescript
-import { initDipCoinPerpSDK, OrderSide, OrderType } from "@dipcoinlab/perp-sui-sdk";
+import { initDipCoinPerpSDK, OrderSide, OrderType } from "@dipcoinlab/perp-client-ts";
 
 // Initialize SDK
 const sdk = initDipCoinPerpSDK("your-private-key", {

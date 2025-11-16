@@ -1,6 +1,6 @@
 {
   "name": "@dipcoinlab/perp-client-ts",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "TypeScript SDK for DipCoin Perpetual Trading on Sui blockchain",
   "exports": {
     ".": {
@@ -27,7 +27,7 @@
     "example:limit": "tsx examples/limit-order.ts",
     "docs": "typedoc --entryPoints src/index.ts",
     "build-ts": "tsc -p tsconfig.json",
-    "build": "rm -rf dist; rollup -c rollup.config.js"
+    "build": "rm -rf dist; rollup -c rollup.config.js; mkdir -p dist/config/deployed/mainnet dist/config/deployed/testnet; cp -r src/config/deployed/* dist/config/deployed/"
   },
   "keywords": [
     "sui",
@@ -47,7 +47,9 @@
     "@types/node": "^20.8.10",
     "axios": "^1.6.0",
     "bignumber.js": "^9.2.0",
-    "buffer": "^6.0.3"
+    "buffer": "^6.0.3",
+    "fs": "^0.0.1-security",
+    "path": "^0.12.7"
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^8.5.0",

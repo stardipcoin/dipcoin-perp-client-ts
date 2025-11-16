@@ -11,17 +11,19 @@ var rollup_config = [
         file: "dist/index.esm.js",
         format: "esm",
         sourcemap: true,
+        exports: "named",
       },
       {
         file: "dist/index.cjs.js",
         format: "cjs",
         sourcemap: true,
-        exports: "auto",
+        exports: "named",
       },
       {
         file: "./dist/index.mjs",
         format: "es",
         sourcemap: true,
+        exports: "named",
       },
     ],
     plugins: [
@@ -40,7 +42,7 @@ var rollup_config = [
         },
       }),
     ],
-    external: ["axios", "@mysten/sui", "@dipcoinlab/perp-ts-library", "bignumber.js", "buffer"],
+    external: ["axios", "@mysten/sui", "@dipcoinlab/perp-ts-library", "bignumber.js", "buffer", "fs", "path", "url"],
   },
 ];
 export { rollup_config as default };

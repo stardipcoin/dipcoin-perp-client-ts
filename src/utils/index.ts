@@ -18,6 +18,7 @@ import { Transaction } from "@mysten/sui/transactions";
 import { SuiClient } from "@mysten/sui/client";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
 /**
  * Signature scheme types
@@ -179,21 +180,108 @@ export function formatError(error: unknown): string {
 }
 
 
+/**
+ * Get the directory of the current module
+ * Works for both ESM and CommonJS
+ */
+function getModuleDir(): string {
+  try {
+    // ESM: use import.meta.url
+    if (typeof import.meta !== "undefined" && import.meta.url) {
+      const __filename = fileURLToPath(import.meta.url);
+      return path.dirname(__filename);
+    }
+  } catch (e) {
+    // Fall through to CommonJS
+  }
+  
+  // CommonJS: use __dirname (will be available after compilation)
+  // @ts-ignore - __dirname may not be defined in ESM context
+  if (typeof __dirname !== "undefined") {
+    // @ts-ignore
+    return __dirname;
+  }
+  
+  // Fallback to process.cwd()
+  return process.cwd();
+}
+
+/**
+ * Find the package root directory by looking for package.json
+ */
+function findPackageRoot(startDir: string): string | null {
+  let currentDir = startDir;
+  const root = path.parse(currentDir).root;
+  
+  while (currentDir !== root) {
+    const packageJsonPath = path.join(currentDir, "package.json");
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
+        if (packageJson.name === "@dipcoinlab/perp-client-ts") {
+          return currentDir;
+        }
+      } catch (e) {
+        // Continue searching
+      }
+    }
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) break;
+    currentDir = parentDir;
+  }
+  
+  return null;
+}
+
 export function readFile(filePath: string): any {
-  // If path is relative and starts with ../, resolve it relative to project root
-  let resolvedPath = filePath;
-  if (filePath.startsWith("../") || filePath.startsWith("./")) {
-    // Resolve relative to project root (process.cwd())
-    resolvedPath = path.resolve(process.cwd(), filePath);
-  } else if (!path.isAbsolute(filePath)) {
-    // If it's a relative path without ../, also resolve relative to project root
-    resolvedPath = path.resolve(process.cwd(), filePath);
+  // Get the directory where this module is located
+  // In packaged npm module, this will be dist/utils/ (or node_modules/@dipcoinlab/perp-client-ts/dist/utils/)
+  // In development, this will be src/utils/
+  const moduleDir = getModuleDir();
+  
+  let resolvedPath: string | null = null;
+  
+  // If path is absolute, use it directly
+  if (path.isAbsolute(filePath)) {
+    resolvedPath = filePath;
+  } else {
+    // Strategy 1: Try relative to module directory (for development: src/utils -> src/config/...)
+    // or (for packaged: dist/utils -> dist/config/...)
+    const baseDir = path.resolve(moduleDir, "..");
+    const basePath = path.resolve(baseDir, filePath);
+    if (fs.existsSync(basePath)) {
+      resolvedPath = basePath;
+    } else {
+      // Strategy 2: Find package root and try dist/config/... (for npm package usage)
+      const packageRoot = findPackageRoot(moduleDir);
+      if (packageRoot) {
+        const packageConfigPath = path.resolve(packageRoot, "dist", filePath);
+        if (fs.existsSync(packageConfigPath)) {
+          resolvedPath = packageConfigPath;
+        }
+      }
+      
+      // Strategy 3: Try relative to process.cwd() as last resort
+      if (!resolvedPath) {
+        const cwdPath = path.resolve(process.cwd(), filePath);
+        if (fs.existsSync(cwdPath)) {
+          resolvedPath = cwdPath;
+        }
+      }
+    }
   }
   
-  if (!fs.existsSync(resolvedPath)) {
-    console.error(`Warning: Config file not found at ${resolvedPath}`);
-    return {};
+  if (!resolvedPath || !fs.existsSync(resolvedPath)) {
+    console.error(`Warning: Config file not found at ${resolvedPath || filePath}`);
+    console.error(`Searched from module directory: ${moduleDir}`);
+    // Return empty object with packages array to prevent undefined.length error
+    return { packages: [] };
   }
   
-  return JSON.parse(fs.readFileSync(resolvedPath).toString());
+  const config = JSON.parse(fs.readFileSync(resolvedPath).toString());
+  // Ensure packages array exists to prevent undefined.length error
+  if (!config.packages || !Array.isArray(config.packages)) {
+    config.packages = [];
+  }
+  return config;
 }

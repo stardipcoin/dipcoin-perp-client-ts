@@ -66,7 +66,7 @@ export class DipCoinPerpSDK {
     this.walletAddress = this.keypair.getPublicKey().toSuiAddress();
     this.httpClient.setWalletAddress(this.walletAddress);
     this.exchangeOnChain = new ExchangeOnChain(
-      readFile(`src/config/deployed/${options.network}/main_contract.json`),
+      readFile(`config/deployed/${options.network}/main_contract.json`),
       new SuiClient({ url: getFullnodeUrl(options.network) }),
       this.keypair
     );

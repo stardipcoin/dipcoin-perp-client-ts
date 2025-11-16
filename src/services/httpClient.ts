@@ -110,7 +110,7 @@ export class HttpClient {
    * GET request
    */
   async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    return this.instance.get<ApiResponse<T>>(url, config);
+    return this.instance.get<ApiResponse<T>>(url, config) as unknown as Promise<ApiResponse<T>>;
   }
 
   /**
@@ -121,7 +121,7 @@ export class HttpClient {
     data?: any,
     config?: AxiosRequestConfig
   ): Promise<ApiResponse<T>> {
-    return this.instance.post<ApiResponse<T>>(url, data, config);
+    return this.instance.post<ApiResponse<T>>(url, data, config) as unknown as Promise<ApiResponse<T>>;
   }
 
   /**
@@ -155,7 +155,7 @@ export class HttpClient {
     return this.instance.post<ApiResponse<T>>(url, formData.toString(), {
       ...config,
       headers,
-    });
+    }) as unknown as Promise<ApiResponse<T>>;
   }
 }
 
