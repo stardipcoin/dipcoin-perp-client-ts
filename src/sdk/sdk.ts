@@ -23,6 +23,7 @@ import {
   Position,
   PositionsResponse,
   SDKResponse,
+  Ticker,
   TradingPair,
   TradingPairsResponse
 } from "../types";
@@ -945,14 +946,10 @@ export class DipCoinPerpSDK {
           quantity = entry.quantity;
         }
 
-        // Convert from wei to normal units (18 decimals)
-        // Match ts-frontend: formatWeiToNormal converts wei to normal units
-        const formattedPrice = this.formatWeiToNormal(price);
-        const formattedQuantity = this.formatWeiToNormal(quantity);
-
+        // Keep wei format - no conversion
         return {
-          price: formattedPrice,
-          quantity: formattedQuantity,
+          price: String(price),
+          quantity: String(quantity),
         };
       })
       .sort((a, b) => {
@@ -988,6 +985,162 @@ export class DipCoinPerpSDK {
       console.error("Error converting wei to normal:", error);
       return "0";
     }
+  }
+
+  /**
+   * Get ticker information for a trading pair
+   * @param symbol Trading symbol (e.g., "BTC-PERP")
+   * @returns Ticker information response
+   * @example
+   * ```typescript
+   * const ticker = await sdk.getTicker("BTC-PERP");
+   * if (ticker.status && ticker.data) {
+   *   console.log("Last Price:", ticker.data.lastPrice);
+   *   console.log("24h Volume:", ticker.data.volume24h);
+   *   console.log("24h Change:", ticker.data.rate24h);
+   * }
+   * ```
+   */
+  async getTicker(symbol: string): Promise<SDKResponse<Ticker>> {
+    try {
+      if (!symbol) {
+        return {
+          status: false,
+          error: "Symbol is required",
+        };
+      }
+
+      // Market API endpoints typically don't require authentication
+      // But we'll try to authenticate if possible for consistency
+      // If authentication fails, we'll still try to fetch the ticker
+      await this.authenticate().catch(() => {
+        // Ignore authentication errors for market data
+      });
+
+      const params: Record<string, any> = {
+        symbol,
+      };
+
+      const response = await this.httpClient.get<any>(
+        API_ENDPOINTS.GET_TICKER,
+        { params }
+      );
+
+      if (response.code === 200 && response.data) {
+        // Extract ticker data from response
+        // Match Java client: TickerResponse structure
+        let rawData = response.data;
+
+        // Handle nested response structure
+        if ((rawData as any).data) {
+          rawData = (rawData as any).data;
+        }
+
+        // Validate structure
+        if (!rawData || !rawData.symbol) {
+          return {
+            status: false,
+            error: "Invalid ticker data structure",
+          };
+        }
+
+        // Process ticker data: convert wei to normal units
+        // Match ts-frontend: transformerTicker function
+        const ticker = this.processTickerData(rawData);
+
+        return {
+          status: true,
+          data: ticker,
+        };
+      } else {
+        return {
+          status: false,
+          error: response.message || "Failed to get ticker",
+        };
+      }
+    } catch (error) {
+      return {
+        status: false,
+        error: formatError(error),
+      };
+    }
+  }
+
+  /**
+   * Process ticker data from API format to Ticker format
+   * Keep all values in wei format - no conversion
+   * @param rawData Raw ticker data from API
+   * @returns Processed Ticker object
+   */
+  private processTickerData(rawData: any): Ticker {
+    // Calculate mid price from best bid and ask
+    // Calculate using wei values, keep in wei format
+    let midPrice: string | undefined;
+    if (rawData.bestAskPrice && rawData.bestBidPrice) {
+      // Both exist: calculate average in wei
+      const askPriceBN = new BigNumber(rawData.bestAskPrice);
+      const bidPriceBN = new BigNumber(rawData.bestBidPrice);
+      const midPriceBN = askPriceBN.plus(bidPriceBN).dividedBy(2);
+      midPrice = midPriceBN.toString();
+    } else if (rawData.bestAskPrice) {
+      midPrice = String(rawData.bestAskPrice);
+    } else if (rawData.bestBidPrice) {
+      midPrice = String(rawData.bestBidPrice);
+    } else {
+      midPrice = "0";
+    }
+
+    // Build ticker object - keep all values in wei format
+    const ticker: Ticker = {
+      symbol: rawData.symbol,
+      lastPrice: String(rawData.lastPrice || "0"),
+      high24h: String(rawData.high24h || "0"),
+      low24h: String(rawData.low24h || "0"),
+      amount24h: String(rawData.amount24h || "0"),
+      volume24h: String(rawData.volume24h || "0"),
+      midPrice,
+      timestamp: rawData.timestamp || Date.now(),
+    };
+
+    // Optional fields - keep in wei format
+    if (rawData.markPrice) {
+      ticker.markPrice = String(rawData.markPrice);
+    }
+    if (rawData.bestAskPrice) {
+      ticker.bestAskPrice = String(rawData.bestAskPrice);
+    }
+    if (rawData.bestBidPrice) {
+      ticker.bestBidPrice = String(rawData.bestBidPrice);
+    }
+    if (rawData.bestAskAmount) {
+      ticker.bestAskAmount = String(rawData.bestAskAmount);
+    }
+    if (rawData.bestBidAmount) {
+      ticker.bestBidAmount = String(rawData.bestBidAmount);
+    }
+    if (rawData.open24h) {
+      ticker.open24h = String(rawData.open24h);
+    }
+    if (rawData.change24h) {
+      ticker.change24h = String(rawData.change24h);
+    }
+    if (rawData.rate24h) {
+      ticker.rate24h = String(rawData.rate24h);
+    }
+    if (rawData.openPrice) {
+      ticker.openPrice = String(rawData.openPrice);
+    }
+    if (rawData.oraclePrice) {
+      ticker.oraclePrice = String(rawData.oraclePrice);
+    }
+    if (rawData.fundingRate) {
+      ticker.fundingRate = String(rawData.fundingRate);
+    }
+    if (rawData.openInterest) {
+      ticker.openInterest = String(rawData.openInterest);
+    }
+
+    return ticker;
   }
 
   /**

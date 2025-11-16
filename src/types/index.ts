@@ -315,3 +315,59 @@ export interface OrderBookResponse {
   message?: string;
 }
 
+/**
+ * Ticker information for a trading pair
+ * Match Java client: TickerResponse
+ */
+export interface Ticker {
+  /** Trading pair symbol */
+  symbol: string;
+  /** Last traded price */
+  lastPrice: string;
+  /** Mark price */
+  markPrice?: string;
+  /** Best ask price */
+  bestAskPrice?: string;
+  /** Best bid price */
+  bestBidPrice?: string;
+  /** 24-hour highest price */
+  high24h: string;
+  /** 24-hour lowest price */
+  low24h: string;
+  /** 24-hour opening price */
+  open24h?: string;
+  /** 24-hour trading amount (in base currency) */
+  amount24h: string;
+  /** 24-hour trading volume (in USDC) */
+  volume24h: string;
+  /** Best ask amount */
+  bestAskAmount?: string;
+  /** Best bid amount */
+  bestBidAmount?: string;
+  /** Timestamp */
+  timestamp?: number;
+  /** 24-hour price change */
+  change24h?: string;
+  /** 24-hour price change rate (percentage) */
+  rate24h?: string;
+  /** Open price */
+  openPrice?: string;
+  /** Oracle price */
+  oraclePrice?: string;
+  /** Funding rate */
+  fundingRate?: string;
+  /** Open interest */
+  openInterest?: string;
+  /** Mid price (calculated from best bid and ask) */
+  midPrice?: string;
+}
+
+/**
+ * Ticker response
+ */
+export interface TickerResponse {
+  code: number;
+  data: Ticker;
+  message?: string;
+}
+

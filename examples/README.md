@@ -32,7 +32,7 @@ Limit order example demonstrating how to place LIMIT orders:
 
 ### orderbook.ts
 
-OrderBook example demonstrating how to get market order book data:
+OrderBook and Ticker example demonstrating how to get market data:
 
 - ✅ Initialize SDK
 - ✅ Authentication (Onboarding)
@@ -41,6 +41,9 @@ OrderBook example demonstrating how to get market order book data:
 - ✅ Display bids (buy orders) and asks (sell orders)
 - ✅ Calculate market spread and mid price
 - ✅ Get OrderBook for multiple symbols
+- ✅ Get Ticker information (price, volume, 24h stats)
+- ✅ Display comprehensive ticker data
+- ✅ Get Ticker for multiple symbols
 
 ## Running Examples
 
@@ -227,7 +230,46 @@ if (orderBook.status && orderBook.data) {
 - Asks are sorted from lowest to highest price
 - Useful for analyzing market depth and liquidity
 
-### 8. Cancel Order (Manual Enable Required)
+### 8. Get Ticker
+
+Get ticker information (price, volume, 24h statistics) for a trading pair:
+
+```typescript
+const ticker = await sdk.getTicker("BTC-PERP");
+if (ticker.status && ticker.data) {
+  const t = ticker.data;
+  
+  // Price information
+  console.log("Last Price:", t.lastPrice);
+  console.log("Mark Price:", t.markPrice);
+  console.log("Oracle Price:", t.oraclePrice);
+  
+  // Best bid/ask
+  console.log("Best Bid:", t.bestBidPrice);
+  console.log("Best Ask:", t.bestAskPrice);
+  
+  // 24h statistics
+  console.log("24h High:", t.high24h);
+  console.log("24h Low:", t.low24h);
+  console.log("24h Volume:", t.volume24h, "USDC");
+  
+  // Price change
+  console.log("24h Change:", t.change24h);
+  console.log("24h Change Rate:", t.rate24h, "%");
+  
+  // Additional info
+  console.log("Funding Rate:", t.fundingRate);
+  console.log("Open Interest:", t.openInterest);
+}
+```
+
+**Note:**
+- Ticker is market data and may not require authentication
+- Contains comprehensive market information including prices, volumes, and statistics
+- Useful for displaying market overview and price tracking
+- Includes 24-hour statistics for price movements and trading activity
+
+### 9. Cancel Order (Manual Enable Required)
 
 Uncomment the code to test order cancellation:
 

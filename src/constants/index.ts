@@ -18,6 +18,7 @@ export const API_ENDPOINTS = {
   GET_OPEN_ORDERS: "/api/perp-trade-api/curr-info/orders",
   GET_TRADING_PAIRS: "/api/perp-market-api/list",
   GET_ORDER_BOOK: "/api/perp-market-api/orderBook",
+  GET_TICKER: "/api/perp-market-api/ticker",
 } as const;
 
 /**
