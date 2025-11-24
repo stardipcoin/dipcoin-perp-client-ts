@@ -72,6 +72,18 @@ export interface PlaceOrderParams {
   reduceOnly?: boolean;
   /** Client order ID for tracking */
   clientId?: string;
+  /** Take profit trigger price */
+  tpTriggerPrice?: number | string;
+  /** Take profit order type */
+  tpOrderType?: OrderType;
+  /** Take profit order price */
+  tpOrderPrice?: number | string;
+  /** Stop loss trigger price */
+  slTriggerPrice?: number | string;
+  /** Stop loss order type */
+  slOrderType?: OrderType;
+  /** Stop loss order price */
+  slOrderPrice?: number | string;
 }
 
 /**
@@ -163,6 +175,12 @@ export interface Position {
   funding: string;
   /** Reducible position quantity */
   positionQtyReducible: string;
+  /** Take profit price */
+  tpPrice?: string;
+  /** Stop loss price */
+  slPrice?: string;
+  /** TP/SL order count */
+  tpslNum?: number;
 }
 
 /**
@@ -296,6 +314,111 @@ export interface OrderBookResponse {
   data: OrderBook;
   message?: string;
 }
+
+/**
+ * TP/SL order mode
+ */
+export type TpSlMode = "position" | "normal";
+
+/**
+ * TP/SL order configuration
+ */
+export interface TpSlOrderConfig {
+  /** Trigger price (required) */
+  triggerPrice: number | string;
+  /** Optional order price (required for LIMIT orders) */
+  orderPrice?: number | string;
+  /** Order type */
+  orderType?: OrderType;
+  /** Quantity override (defaults to parent quantity) */
+  quantity?: number | string;
+  /** Trigger source (defaults to "oracle") */
+  triggerWay?: string;
+  /** TP/SL mode: position-wide or normal */
+  tpslType?: TpSlMode;
+  /** Existing plan ID for edits */
+  planId?: string | number;
+  /** Optional custom salt */
+  salt?: string | number;
+}
+
+/**
+ * Parameters for placing or editing TP/SL orders
+ */
+export interface PlaceTpSlOrdersParams {
+  /** Trading symbol */
+  symbol: string;
+  /** Market ID (PerpetualID) */
+  market: string;
+  /** Closing side (BUY to close short, SELL to close long) */
+  side: OrderSide;
+  /** Whether the existing position is long */
+  isLong: boolean;
+  /** Base quantity used when TP/SL configs omit quantity */
+  quantity: number | string;
+  /** Position leverage */
+  leverage: number | string;
+  /** Reduce only flag (defaults true) */
+  reduceOnly?: boolean;
+  /** Post only flag */
+  postOnly?: boolean;
+  /** Orderbook only flag */
+  orderbookOnly?: boolean;
+  /** IOC flag */
+  ioc?: boolean;
+  /** Take profit configuration */
+  tp?: TpSlOrderConfig;
+  /** Stop loss configuration */
+  sl?: TpSlOrderConfig;
+}
+
+/**
+ * Result of placing TP/SL orders
+ */
+export interface PlaceTpSlOrdersResult {
+  tpResult?: ApiResponse;
+  slResult?: ApiResponse;
+}
+
+/**
+ * Position TP/SL order information
+ */
+export interface PositionTpSlOrder {
+  id?: string | number;
+  planBatchId?: string | number;
+  planOrderType?: string;
+  orderType?: string;
+  symbol?: string;
+  side?: string;
+  status?: string;
+  hash?: string;
+  quantity: string;
+  price?: string;
+  triggerPrice?: string;
+  tpTriggerPrice?: string;
+  tpOrderPrice?: string;
+  slTriggerPrice?: string;
+  slOrderPrice?: string;
+  tpPlanId?: string | number | null;
+  slPlanId?: string | number | null;
+  tpslType?: TpSlMode;
+  createdAt?: number;
+  updatedAt?: number;
+  [key: string]: any;
+}
+
+/**
+ * Query parameters for fetching TP/SL orders on a position
+ */
+export interface PositionTpSlQueryParams {
+  positionId: string | number;
+  tpslType?: TpSlMode;
+}
+
+/**
+ * Cancel TP/SL orders request (alias of CancelOrderParams)
+ */
+export type CancelTpSlOrdersParams = CancelOrderParams;
 
 /**
  * Ticker information for a trading pair

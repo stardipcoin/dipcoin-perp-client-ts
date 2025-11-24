@@ -13,12 +13,15 @@ export const API_ENDPOINTS = {
   AUTHORIZE: "/api/authorize",
   PLACE_ORDER: "/api/perp-trade-api/trade/placeorder",
   CANCEL_ORDER: "/api/perp-trade-api/trade/cancelorder",
+  PLAN_CLOSE_ORDER: "/api/perp-trade-api/plan/batch/plancloseorder",
+  CANCEL_PLAN_ORDER: "/api/perp-trade-api/plan/cancelplanorder",
   GET_ACCOUNT_INFO: "/api/perp-trade-api/curr-info/account",
   GET_POSITIONS: "/api/perp-trade-api/curr-info/positions",
   GET_OPEN_ORDERS: "/api/perp-trade-api/curr-info/orders",
   GET_TRADING_PAIRS: "/api/perp-market-api/list",
   GET_ORDER_BOOK: "/api/perp-market-api/orderBook",
   GET_TICKER: "/api/perp-market-api/ticker",
+  GET_POSITION_TPSL: "/api/perp-trade-api/plan/position/tpsl",
 } as const;
 
 /**

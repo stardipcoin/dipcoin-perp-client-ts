@@ -178,7 +178,6 @@ async function main() {
           `- ${order.symbol}: ${order.side} ${order.orderType} ${order.quantity} @ ${order.price} (Hash: ${order.hash})`
         );
       });
-
       // 8. Cancel an order if there are any open orders
       if (updatedOrders.data.length > 0) {
         console.log("\n=== Cancelling Order ===");

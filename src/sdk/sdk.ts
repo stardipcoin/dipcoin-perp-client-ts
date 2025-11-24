@@ -11,6 +11,7 @@ import {
   AccountInfo,
   AccountInfoResponse,
   CancelOrderParams,
+  CancelTpSlOrdersParams,
   DipCoinPerpSDKOptions,
   OpenOrder,
   OpenOrdersResponse,
@@ -20,10 +21,15 @@ import {
   OrderSide,
   OrderType,
   PlaceOrderParams,
+  PlaceTpSlOrdersParams,
+  PlaceTpSlOrdersResult,
   Position,
+  PositionTpSlOrder,
   PositionsResponse,
   SDKResponse,
   Ticker,
+  TpSlMode,
+  TpSlOrderConfig,
   TradingPair,
   TradingPairsResponse
 } from "../types";
@@ -216,6 +222,12 @@ export class DipCoinPerpSDK {
         market,
         reduceOnly = false,
         clientId = "",
+        tpTriggerPrice,
+        tpOrderType = OrderType.MARKET,
+        tpOrderPrice = "",
+        slTriggerPrice,
+        slOrderType = OrderType.MARKET,
+        slOrderPrice = "",
       } = params;
 
       // Validate market parameter - it must be a PerpetualID, not a symbol
@@ -250,12 +262,76 @@ export class DipCoinPerpSDK {
         salt: saltBN,
       };
 
+      // Build TP order if trigger price is provided
+      let tpOrder = null;
+      let tpSalt = null;
+      if (tpTriggerPrice) {
+        tpSalt = new BigNumber(Date.now() + 1);
+        tpOrder = {
+          market: order.market,
+          creator: this.walletAddress,
+          isLong: !order.isLong,
+          reduceOnly: true,
+          postOnly: false,
+          orderbookOnly: true,
+          ioc: false,
+          quantity: quantityBN,
+          price:
+            tpOrderType === OrderType.LIMIT
+              ? formatNormalToWeiBN(tpOrderPrice || tpTriggerPrice)
+              : formatNormalToWeiBN(""),
+          leverage: leverageBN,
+          expiration: expirationBN,
+          salt: tpSalt,
+        };
+      }
+
+      // Build SL order if trigger price is provided
+      let slOrder = null;
+      let slSalt = null;
+      if (slTriggerPrice) {
+        slSalt = new BigNumber(Date.now() + 2);
+        slOrder = {
+          market: order.market,
+          creator: this.walletAddress,
+          isLong: !order.isLong,
+          reduceOnly: true,
+          postOnly: false,
+          orderbookOnly: true,
+          ioc: false,
+          quantity: quantityBN,
+          price:
+            slOrderType === OrderType.LIMIT
+              ? formatNormalToWeiBN(slOrderPrice || slTriggerPrice)
+              : formatNormalToWeiBN(""),
+          leverage: leverageBN,
+          expiration: expirationBN,
+          salt: slSalt,
+        };
+      }
+
       // Generate order message for signing
       const orderMsg = OrderSigner.getOrderMessageForUIWallet(order);
       const orderHashBytes = new TextEncoder().encode(orderMsg);
 
       // Sign main order
       const orderSignature = await signMessage(this.keypair, orderHashBytes);
+
+      // Sign TP order if exists
+      let tpOrderSignature: string | undefined;
+      if (tpOrder) {
+        const tpOrderMsg = OrderSigner.getOrderMessageForUIWallet(tpOrder);
+        const tpOrderHashBytes = new TextEncoder().encode(tpOrderMsg);
+        tpOrderSignature = await signMessage(this.keypair, tpOrderHashBytes);
+      }
+
+      // Sign SL order if exists
+      let slOrderSignature: string | undefined;
+      if (slOrder) {
+        const slOrderMsg = OrderSigner.getOrderMessageForUIWallet(slOrder);
+        const slOrderHashBytes = new TextEncoder().encode(slOrderMsg);
+        slOrderSignature = await signMessage(this.keypair, slOrderHashBytes);
+      }
 
       // Build request parameters
       // Match ts-frontend: always use formatNormalToWei(price) regardless of order type
@@ -273,6 +349,31 @@ export class DipCoinPerpSDK {
         reduceOnly, // Will be sent as boolean in JSON
         orderSignature,
       };
+
+      // Add TP parameters if exists
+      if (tpTriggerPrice && tpOrderSignature) {
+        requestParams.tpOrderSignature = tpOrderSignature;
+        requestParams.tpTriggerPrice = formatNormalToWei(tpTriggerPrice);
+        requestParams.tpOrderType = tpOrderType;
+        requestParams.tpOrderPrice =
+          tpOrderType === OrderType.LIMIT
+            ? formatNormalToWei(tpOrderPrice || tpTriggerPrice)
+            : formatNormalToWei("");
+        requestParams.tpSalt = tpSalt?.toString();
+        requestParams.triggerWay = "oracle";
+      }
+
+      // Add SL parameters if exists
+      if (slTriggerPrice && slOrderSignature) {
+        requestParams.slOrderSignature = slOrderSignature;
+        requestParams.slTriggerPrice = formatNormalToWei(slTriggerPrice);
+        requestParams.slOrderType = slOrderType;
+        requestParams.slOrderPrice =
+          slOrderType === OrderType.LIMIT
+            ? formatNormalToWei(slOrderPrice || slTriggerPrice)
+            : formatNormalToWei("");
+        requestParams.slSalt = slSalt?.toString();
+      }
 
       // Send request
       // Match ts-frontend and Java: use JSON POST request, not form-urlencoded
@@ -413,6 +514,318 @@ export class DipCoinPerpSDK {
         error: formatError(error),
       };
     }
+  }
+
+  /**
+   * Place or edit TP/SL orders for a position
+   */
+  async placePositionTpSlOrders(
+    params: PlaceTpSlOrdersParams
+  ): Promise<SDKResponse<PlaceTpSlOrdersResult>> {
+    try {
+      const authResult = await this.authenticate();
+      if (!authResult.status) {
+        return {
+          status: false,
+          error: authResult.error || "Authentication failed",
+        };
+      }
+
+      const {
+        symbol,
+        market,
+        side,
+        isLong,
+        leverage,
+        quantity,
+        reduceOnly = true,
+        postOnly = false,
+        orderbookOnly = true,
+        ioc = false,
+        tp,
+        sl,
+      } = params;
+
+      if (!this.isPositiveNumber(quantity)) {
+        return {
+          status: false,
+          error: "Quantity must be greater than zero",
+        };
+      }
+
+      const hasTpOrder = this.hasTpSlOrderConfig(tp, quantity);
+      const hasSlOrder = this.hasTpSlOrderConfig(sl, quantity);
+
+      if (!hasTpOrder && !hasSlOrder) {
+        return {
+          status: false,
+          error: "At least one TP or SL configuration is required",
+        };
+      }
+
+      const leverageBN = formatNormalToWeiBN(leverage);
+      const leverageWei = formatNormalToWei(leverage);
+      const expirationBN = new BigNumber(0);
+      const saltBN = new BigNumber(+new Date());
+      const slSaltBN = saltBN.plus(1);
+      const planPayloadBase = {
+        symbol,
+        side,
+        leverage: leverageWei,
+        creator: this.walletAddress,
+      };
+
+      const sendPlanCloseRequest = async (payload: Record<string, any>) => {
+        let response = await this.httpClient.post<OrderResponse>(
+          API_ENDPOINTS.PLAN_CLOSE_ORDER,
+          payload
+        );
+
+        if (response.code === 1000) {
+          this.clearAuth();
+          const retryAuth = await this.authenticate();
+          if (retryAuth.status) {
+            response = await this.httpClient.post<OrderResponse>(
+              API_ENDPOINTS.PLAN_CLOSE_ORDER,
+              payload
+            );
+          }
+        }
+
+        return response;
+      };
+
+      const results: PlaceTpSlOrdersResult = {};
+      let tpPayload: Record<string, any> | undefined;
+      let slPayload: Record<string, any> | undefined;
+
+      if (hasTpOrder && tp) {
+        if (!this.isPositiveNumber(tp.triggerPrice)) {
+          return {
+            status: false,
+            error: "TP trigger price must be greater than zero",
+          };
+        }
+
+        const tpSaltValue = tp.salt ? new BigNumber(tp.salt) : saltBN;
+        const tpOrderQuantityBN = formatNormalToWeiBN(tp.quantity ?? quantity);
+        const tpOrderPriceBN =
+          (tp.orderType || OrderType.MARKET) === OrderType.LIMIT
+            ? formatNormalToWeiBN(tp.orderPrice ?? tp.triggerPrice ?? "0")
+            : new BigNumber(0);
+
+        const tpOrder = {
+          market,
+          creator: this.walletAddress,
+          isLong,
+          reduceOnly,
+          postOnly,
+          orderbookOnly,
+          ioc,
+          quantity: tpOrderQuantityBN,
+          price: tpOrderPriceBN,
+          leverage: leverageBN,
+          expiration: expirationBN,
+          salt: tpSaltValue,
+        };
+
+        const tpOrderMsg = OrderSigner.getOrderMessageForUIWallet(tpOrder);
+        const tpOrderSignature = await signMessage(
+          this.keypair,
+          new TextEncoder().encode(tpOrderMsg)
+        );
+
+        tpPayload = {
+          ...planPayloadBase,
+          tpOrderType: tp.orderType || OrderType.MARKET,
+          tpTpslType: tp.tpslType || ("position" as TpSlMode),
+          tpTriggerPrice: formatNormalToWei(tp.triggerPrice),
+          tpOrderPrice:
+            (tp.orderType || OrderType.MARKET) === OrderType.LIMIT
+              ? formatNormalToWei(tp.orderPrice ?? tp.triggerPrice ?? "0")
+              : "0",
+          tpQuantity: formatNormalToWei(tp.quantity ?? quantity),
+          tpTriggerWay: tp.triggerWay || "oracle",
+          tpSalt: tpSaltValue.toString(),
+          tpOrderSignature,
+        };
+
+        if (tp.planId !== undefined) {
+          tpPayload.tpPlanId = tp.planId;
+        }
+      }
+
+      if (hasSlOrder && sl) {
+        if (!this.isPositiveNumber(sl.triggerPrice)) {
+          return {
+            status: false,
+            error: "SL trigger price must be greater than zero",
+          };
+        }
+
+        const slSaltValue = sl.salt ? new BigNumber(sl.salt) : slSaltBN;
+        const slOrderQuantityBN = formatNormalToWeiBN(sl.quantity ?? quantity);
+        const slOrderPriceBN =
+          (sl.orderType || OrderType.MARKET) === OrderType.LIMIT
+            ? formatNormalToWeiBN(sl.orderPrice ?? sl.triggerPrice ?? "0")
+            : new BigNumber(0);
+
+        const slOrder = {
+          market,
+          creator: this.walletAddress,
+          isLong,
+          reduceOnly,
+          postOnly,
+          orderbookOnly,
+          ioc,
+          quantity: slOrderQuantityBN,
+          price: slOrderPriceBN,
+          leverage: leverageBN,
+          expiration: expirationBN,
+          salt: slSaltValue,
+        };
+
+        const slOrderMsg = OrderSigner.getOrderMessageForUIWallet(slOrder);
+        const slOrderSignature = await signMessage(
+          this.keypair,
+          new TextEncoder().encode(slOrderMsg)
+        );
+
+        slPayload = {
+          ...planPayloadBase,
+          slOrderType: sl.orderType || OrderType.MARKET,
+          slTpslType: sl.tpslType || ("position" as TpSlMode),
+          slTriggerPrice: formatNormalToWei(sl.triggerPrice),
+          slOrderPrice:
+            (sl.orderType || OrderType.MARKET) === OrderType.LIMIT
+              ? formatNormalToWei(sl.orderPrice ?? sl.triggerPrice ?? "0")
+              : "0",
+          slQuantity: formatNormalToWei(sl.quantity ?? quantity),
+          slTriggerWay: sl.triggerWay || "oracle",
+          slSalt: slSaltValue.toString(),
+          slOrderSignature,
+        };
+
+        if (sl.planId !== undefined) {
+          slPayload.slPlanId = sl.planId;
+        }
+      }
+
+      if (hasTpOrder && hasSlOrder && tpPayload && slPayload) {
+        const payload = {
+          ...tpPayload,
+          ...slPayload,
+        };
+        const response = await sendPlanCloseRequest(payload);
+        results.tpResult = response;
+        results.slResult = response;
+      } else if (hasTpOrder && tpPayload) {
+        results.tpResult = await sendPlanCloseRequest(tpPayload);
+      } else if (hasSlOrder && slPayload) {
+        results.slResult = await sendPlanCloseRequest(slPayload);
+      }
+
+      const success = [results.tpResult, results.slResult].some(
+        (res) => res && res.code === 200
+      );
+
+      if (success) {
+        return {
+          status: true,
+          data: results,
+        };
+      }
+
+      return {
+        status: false,
+        data: results,
+        error:
+          results.tpResult?.message ||
+          results.slResult?.message ||
+          "Failed to place TP/SL order",
+      };
+    } catch (error) {
+      return {
+        status: false,
+        error: formatError(error),
+      };
+    }
+  }
+
+  /**
+   * Get TP/SL orders for a position
+   */
+  async getPositionTpSl(
+    positionId: string | number,
+    tpslType: TpSlMode = "normal"
+  ): Promise<SDKResponse<PositionTpSlOrder[]>> {
+    try {
+      const authResult = await this.authenticate();
+      if (!authResult.status) {
+        return {
+          status: false,
+          error: authResult.error || "Authentication failed",
+        };
+      }
+
+      const params = {
+        positionId,
+        tpslType,
+      };
+
+      let response = await this.httpClient.get<PositionTpSlOrder[]>(
+        API_ENDPOINTS.GET_POSITION_TPSL,
+        { params }
+      );
+
+      if (response.code === 1000) {
+        this.clearAuth();
+        const retryAuth = await this.authenticate();
+        if (retryAuth.status) {
+          response = await this.httpClient.get<PositionTpSlOrder[]>(
+            API_ENDPOINTS.GET_POSITION_TPSL,
+            { params }
+          );
+        } else {
+          return {
+            status: false,
+            error: "Authentication expired and refresh failed",
+          };
+        }
+      }
+
+      if (response.code === 200) {
+        const rawData = Array.isArray(response.data)
+          ? response.data
+          : (response.data as any)?.data || [];
+        const orders = rawData.map((item: any) =>
+          this.transformPositionTpSlOrder(item)
+        );
+        return {
+          status: true,
+          data: orders,
+        };
+      }
+
+      return {
+        status: false,
+        error: response.message || "Failed to fetch TP/SL orders",
+      };
+    } catch (error) {
+      return {
+        status: false,
+        error: formatError(error),
+      };
+    }
+  }
+
+  /**
+   * Cancel TP/SL orders (alias of cancelOrder)
+   */
+  async cancelTpSlOrders(
+    params: CancelTpSlOrdersParams
+  ): Promise<SDKResponse<OrderResponse>> {
+    return this.cancelOrder(params);
   }
 
   /**
@@ -966,6 +1379,82 @@ export class DipCoinPerpSDK {
         status: false,
         error: formatError(error),
       };
+    }
+  }
+
+  /**
+   * Transform raw TP/SL order data into SDK-friendly format
+   */
+  private transformPositionTpSlOrder(raw: any): PositionTpSlOrder {
+    const toNormal = (value?: string | number | null) =>
+      value !== undefined && value !== null && value !== ""
+        ? this.formatWeiToNormal(value)
+        : undefined;
+
+    const planOrderType = raw.planOrderType;
+
+    return {
+      ...raw,
+      id: raw.id ?? raw.planId ?? raw.planBatchId,
+      planBatchId: raw.planBatchId ?? raw.id,
+      planOrderType,
+      orderType: raw.orderType,
+      symbol: raw.symbol,
+      side: raw.side,
+      status: raw.status,
+      hash: raw.hash,
+      quantity: toNormal(raw.quantity) ?? "0",
+      price: toNormal(raw.price),
+      triggerPrice: toNormal(raw.triggerPrice),
+      tpTriggerPrice: toNormal(raw.tpTriggerPrice),
+      tpOrderPrice: toNormal(raw.tpOrderPrice),
+      slTriggerPrice: toNormal(raw.slTriggerPrice),
+      slOrderPrice: toNormal(raw.slOrderPrice),
+      tpPlanId:
+        planOrderType === "takeProfit"
+          ? raw.tpPlanId ?? raw.id ?? null
+          : raw.tpPlanId ?? null,
+      slPlanId:
+        planOrderType === "stopLoss"
+          ? raw.slPlanId ?? raw.id ?? null
+          : raw.slPlanId ?? null,
+      tpslType: raw.tpslType,
+      createdAt: raw.createdAt,
+      updatedAt: raw.updatedAt,
+    };
+  }
+
+  /**
+   * Check whether TP/SL config should be submitted
+   */
+  private hasTpSlOrderConfig(
+    config: TpSlOrderConfig | undefined,
+    fallbackQuantity: number | string
+  ): boolean {
+    if (!config) {
+      return false;
+    }
+
+    if (!this.isPositiveNumber(config.triggerPrice)) {
+      return false;
+    }
+
+    const quantityValue = config.quantity ?? fallbackQuantity;
+    return this.isPositiveNumber(quantityValue);
+  }
+
+  /**
+   * Determine if a numeric input is greater than zero
+   */
+  private isPositiveNumber(value?: number | string): boolean {
+    if (value === undefined || value === null || value === "") {
+      return false;
+    }
+
+    try {
+      return new BigNumber(value).gt(0);
+    } catch {
+      return false;
     }
   }
 

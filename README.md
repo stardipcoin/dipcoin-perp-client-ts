@@ -154,6 +154,64 @@ if (result.status) {
 }
 ```
 
+### Place Order with TP/SL
+
+Place an order with take profit and stop loss:
+
+```typescript
+const result = await sdk.placeOrder({
+  symbol: "BTC-PERP",
+  side: OrderSide.BUY,
+  orderType: OrderType.MARKET,
+  quantity: "0.1",
+  leverage: "10",
+  // Take profit
+  tpTriggerPrice: "55000",
+  tpOrderType: OrderType.MARKET,
+  // Stop loss
+  slTriggerPrice: "45000",
+  slOrderType: OrderType.MARKET,
+});
+```
+
+### Manage Existing Position TP/SL Orders
+
+```typescript
+await sdk.placePositionTpSlOrders({
+  symbol: "BTC-PERP",
+  market: "<perpetual-id>",
+  side: OrderSide.SELL,
+  isLong: false,
+  leverage: "10",
+  quantity: "0.05",
+  tp: {
+    triggerPrice: "90000",
+    orderType: OrderType.LIMIT,
+    orderPrice: "90000",
+    tpslType: "position",
+  },
+  sl: {
+    triggerPrice: "70000",
+    orderType: OrderType.MARKET,
+    tpslType: "position",
+  },
+});
+
+const tpSlOrders = await sdk.getPositionTpSl("<position-id>", "position");
+
+await sdk.cancelTpSlOrders({
+  symbol: "BTC-PERP",
+  orderHashes: ["0xabc..."],
+});
+```
+
+### Market Data (Ticker & Order Book)
+
+```typescript
+const ticker = await sdk.getTicker("BTC-PERP");
+const orderBook = await sdk.getOrderBook("BTC-PERP");
+```
+
 ### Cancel Order
 
 Cancel one or more orders:
@@ -239,6 +297,12 @@ Place a new order.
 - `market`: Optional market ID
 - `reduceOnly`: Optional, only reduce position
 - `clientId`: Optional client order ID
+- `tpTriggerPrice`: Optional take profit trigger price
+- `tpOrderType`: Optional take profit order type
+- `tpOrderPrice`: Optional take profit order price
+- `slTriggerPrice`: Optional stop loss trigger price
+- `slOrderType`: Optional stop loss order type
+- `slOrderPrice`: Optional stop loss order price
 
 ##### `cancelOrder(params: CancelOrderParams): Promise<SDKResponse<OrderResponse>>`
 
@@ -438,6 +502,13 @@ async function tradingFlow() {
 
 tradingFlow();
 ```
+
+### Example Scripts
+
+- `npm run example` – Basic end-to-end usage
+- `npm run example:limit` – Limit order workflow
+- `npm run example:orderbook` – Fetch order book snapshots
+- `npm run example:tpsl` – Manage position TP/SL (set `RUN_TPSL_DEMO=1`)
 
 ## License
 

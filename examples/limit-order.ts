@@ -108,7 +108,7 @@ async function main() {
 
     // Example: Place a limit buy order for BTC-PERP at $50,000
     // Adjust these values according to current market conditions
-    const limitPrice = "90000"; // Price in USDC
+    const limitPrice = "85000"; // Price in USDC
     const quantity = "0.01"; // Quantity in BTC
     const leverage = "20"; // 10x leverage
 

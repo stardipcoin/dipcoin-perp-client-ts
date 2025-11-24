@@ -102,6 +102,20 @@ Sui private keys support the following formats:
    }
    ```
 
+### 5. Optional Environment Variables for TP/SL Examples
+
+The `examples/tpsl-example.ts` script accepts the following optional variables:
+
+| Variable            | Description                                                                 |
+| ------------------- | --------------------------------------------------------------------------- |
+| `RUN_TPSL_DEMO`     | Set to `1` to actually place TP/SL orders (default: orders are not created) |
+| `TPSL_SYMBOL`       | Override trading pair symbol (default: `BTC-PERP`)                           |
+| `POSITION_ID`       | Position ID used when fetching TP/SL orders                                  |
+| `TPSL_CANCEL_HASH`  | Existing TP/SL order hash to cancel                                          |
+
+These variables let you test TP/SL flows safely without accidentally creating
+orders until you explicitly opt in.
+
 ### 4. Get Test Private Key
 
 If you don't have a test private key, you can obtain one through the following methods:
@@ -126,6 +140,11 @@ npm run example
 
 # Or using yarn
 yarn example
+
+# Other available scripts
+npm run example:limit      # Limit order demo
+npm run example:orderbook  # Order book snapshot
+npm run example:tpsl       # Position TP/SL demo (requires RUN_TPSL_DEMO=1)
 ```
 
 This command will:
@@ -264,6 +283,30 @@ if (openOrders.status && openOrders.data && openOrders.data.length > 0) {
 **Verification Points:**
 - ✅ Order cancellation successful
 - ✅ Order disappears from open orders list
+
+### 6. Verify Position TP/SL Management (Optional)
+
+1. (Optional) Export environment variables:
+
+```bash
+export RUN_TPSL_DEMO=1          # Actually place TP/SL orders
+export TPSL_SYMBOL=BTC-PERP     # Optional override
+export POSITION_ID=123456789    # Use a valid position ID to query TP/SL orders
+```
+
+2. Run the TP/SL example:
+
+```bash
+npm run example:tpsl
+```
+
+3. Follow the console output:
+   - ✅ TP/SL placement response (only when `RUN_TPSL_DEMO=1`)
+   - ✅ Existing TP/SL orders listed when `POSITION_ID` is provided
+   - ✅ TP/SL cancellation result when `TPSL_CANCEL_HASH` is set
+
+4. Confirm in the UI or via subsequent API calls that the TP/SL orders were
+   created/updated/cancelled as expected.
 
 ## 📝 Complete Testing Workflow
 
