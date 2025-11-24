@@ -2,6 +2,17 @@
 
 TypeScript SDK for DipCoin Perpetual Trading on Sui blockchain.
 
+## Table of Contents
+
+1. [Installation](#-installation)
+2. [Quick Start](#-quick-start)
+3. [Unified Demo Script](#-unified-demo-script)
+4. [Usage Guide](#-usage-guide)
+5. [Core Features](#core-features)
+6. [API Reference](#api-reference)
+7. [Examples](#examples)
+8. [License](#license)
+
 ## 📦 Installation
 
 ```bash
@@ -30,9 +41,135 @@ PRIVATE_KEY=your-private-key-here
 
 ```bash
 npm run example
+# or
+RUN_LIMIT_ORDER=1 npm run example
 ```
 
-For detailed usage instructions, see [USAGE.md](./USAGE.md).
+This command executes the unified script at `examples/index.ts`.  
+Each trading action (deposits, withdrawals, order placement, margin edits, TP/SL flows, etc.) is disabled by default and can be opt‑in via environment flags. See [USAGE.md](./USAGE.md) for the complete flag matrix and safety notes.
+
+## 🎯 Unified Demo Script
+
+The legacy example files have been consolidated into `examples/index.ts`.  
+It executes a curated workflow in the following order:
+
+1. Wallet setup & authentication (prints the derived wallet address and target network)
+2. Optional on-chain funding (deposit / withdraw) driven by `DEPOSIT_AMOUNT` and `WITHDRAW_AMOUNT`
+3. Account, position, and open-order snapshots for the primary `DEMO_SYMBOL`
+4. Market and limit order placement with optional post-placement cancellation
+5. Market data inspection (order book snapshot + ticker snapshot with spread calculations)
+6. Leverage & margin utilities, including preferred leverage adjustments and isolated margin add/remove flows
+7. TP/SL lifecycle management (create, list, edit, and cancel position-level TP/SL plans)
+
+All on-chain or order-creating steps are opt-in. Enable only the pieces you wish to test:
+
+| Flag | Purpose | Default |
+| --- | --- | --- |
+| `RUN_DEPOSIT` / `RUN_WITHDRAW` | Move funds between wallet & exchange | `0` |
+| `RUN_MARKET_ORDER` | Submit a market order | `0` |
+| `RUN_LIMIT_ORDER` | Submit a limit order (configure `LIMIT_ORDER_PRICE`) | `0` |
+| `RUN_CANCEL_ORDER` | Cancel the first open order | `0` |
+| `RUN_MARKET_DATA` | Print order book + ticker snapshots | `1` |
+| `RUN_ADJUST_LEVERAGE` | Update preferred leverage (off-chain) | `0` |
+| `RUN_MARGIN_ADD` / `RUN_MARGIN_REMOVE` | Add/remove isolated margin (on-chain) | `0` |
+| `RUN_TPSL_DEMO` | Create TP/SL orders for a position | `0` |
+| `RUN_TPSL_EDIT` | Edit existing TP/SL plans (needs plan IDs) | `0` |
+
+Additional tuning variables such as `DEPOSIT_AMOUNT`, `MARKET_ORDER_QTY`, `LIMIT_ORDER_SIDE`, `MARGIN_SYMBOL`, `TPSL_SYMBOL`, etc. mirror the names from the previous standalone scripts to remain backwards compatible.
+
+> Need a quick way to only inspect or update preferred leverage? Run `npm run example:leverage` (see `USAGE.md` for flags such as `SET_LEVERAGE`, `LEVERAGE_TARGET`, `LEVERAGE_SYMBOL`).
+
+### Script Flow Details
+
+Each major block inside `examples/index.ts` is wrapped in a helper such as `maybeDeposit`, `maybePlaceMarketOrder`, or `maybeRunTpSlFlow`.  
+Those helpers gate their logic behind the environment switches above, print labeled sections (via `logSection`), and provide success/error emojis so you can visually trace the execution in your terminal logs. The script also:
+
+- Fetches trading pairs and resolves the `perpId` automatically for the configured symbol (falls back to `sdk.getPerpetualID`).
+- Shows wallet/account diagnostics before any trading action so you can confirm balances and exposure.
+- Prints the top-of-book bids/asks plus percentage spread by using BigNumber math, making it easier to compare against the web UI.
+- Surfaces TP/SL plan IDs and hashes so that subsequent edits or cancellations can reuse real identifiers without manual API calls.
+
+### Environment Parameters
+
+Beyond the boolean toggles, the demo reads the following configuration values (all optional, shown with defaults from the script):
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `NETWORK` | `mainnet` or `testnet` selection passed to `initDipCoinPerpSDK`. | `testnet` |
+| `DEMO_SYMBOL` | Primary symbol inspected by the snapshots and trading actions. | `BTC-PERP` |
+| `PRIVATE_KEY` | Private key for signing transactions (required). | _none_ |
+| `DEPOSIT_AMOUNT` / `WITHDRAW_AMOUNT` | USDC amounts for bank transfers. | `10` / `5` |
+| `MARKET_ORDER_QTY`, `MARKET_ORDER_LEVERAGE`, `MARKET_ORDER_SIDE` | Market order size, leverage, and side (`BUY`/`SELL`). | `0.01`, `20`, `BUY` |
+| `LIMIT_ORDER_QTY`, `LIMIT_ORDER_PRICE`, `LIMIT_ORDER_LEVERAGE`, `LIMIT_ORDER_SIDE` | Limit order parameters. | `0.01`, `85000`, `20`, `BUY` |
+| `MARGIN_SYMBOL`, `MARGIN_ADD_AMOUNT`, `MARGIN_REMOVE_AMOUNT` | Target symbol and USDC sizes for margin utilities. | `DEMO_SYMBOL`, `10`, `5` |
+| `MARGIN_TARGET_LEVERAGE`, `MARGIN_TYPE` | Preferred leverage update payload. | `20`, `ISOLATED` |
+| `TPSL_SYMBOL`, `POSITION_ID` | Symbol/position used when fetching TP/SL plans (falls back to detected positions). | `DEMO_SYMBOL`, _auto-detected_ |
+| `TPSL_EDIT_TP_PLAN_ID`, `TPSL_EDIT_SL_PLAN_ID`, `TPSL_CANCEL_HASH` | Explicit plan IDs/hashes for TP/SL edit and cancel flows. | _auto-resolved when possible_ |
+
+Example: run just the limit-order workflow against ETH with a tighter size.
+
+```bash
+DEMO_SYMBOL=ETH-PERP RUN_LIMIT_ORDER=1 LIMIT_ORDER_QTY=0.05 LIMIT_ORDER_PRICE=3800 npm run example
+```
+
+Because the script exits on authentication failure or missing `PRIVATE_KEY`, you can safely iterate by tweaking `.env` without risking partial executions. When testing on-chain actions, double-check gas budgets and balances before enabling their flags.
+
+### Leverage Utility Recipes
+
+The demo exposes two leverage helpers:
+
+- `showPreferredLeverage` → calls `sdk.getUserConfig(symbol)` to fetch the current leverage, margin type, and raw on-chain value.
+- `maybeAdjustPreferredLeverage` → conditionally invokes `sdk.adjustLeverage(...)` when `RUN_ADJUST_LEVERAGE=1` (or `RUN_SET_LEVERAGE=1`) and prints the post-update config.
+
+Run the leverage inspection on its own:
+
+```bash
+RUN_MARKET_DATA=0 RUN_ADJUST_LEVERAGE=0 npm run example
+```
+
+Update the preferred leverage for ETH perpetuals to 12x isolated:
+
+```bash
+MARGIN_SYMBOL=ETH-PERP RUN_ADJUST_LEVERAGE=1 MARGIN_TARGET_LEVERAGE=12 MARGIN_TYPE=ISOLATED npm run example
+```
+
+Behind the scenes the SDK sequence is:
+
+```typescript
+const current = await sdk.getUserConfig("ETH-PERP");
+console.log("Current leverage:", current.data?.leverage);
+await sdk.adjustLeverage({ symbol: "ETH-PERP", leverage: "12", marginType: "ISOLATED" });
+```
+
+### TP/SL Utility Recipes
+
+`maybeRunTpSlFlow` orchestrates the entire lifecycle:
+
+1. Detect or fetch `POSITION_ID` for the configured `TPSL_SYMBOL`.
+2. Place TP/SL plans when `RUN_TPSL_DEMO=1` via `sdk.placePositionTpSlOrders`.
+3. Read back the plan list with `sdk.getPositionTpSl(positionId, "position")`.
+4. Edit existing plans when `RUN_TPSL_EDIT=1` and `TPSL_EDIT_TP_PLAN_ID` / `TPSL_EDIT_SL_PLAN_ID` are provided (or auto-detected).
+5. Cancel a specific plan by hash with `sdk.cancelTpSlOrders`.
+
+Minimal command to list current TP/SL plans for BTC and stop after the fetch:
+
+```bash
+RUN_TPSL_DEMO=0 RUN_TPSL_EDIT=0 TPSL_SYMBOL=BTC-PERP POSITION_ID=<position-id> npm run example
+```
+
+Demo new TP/SL orders on ETH using the auto-detected position and Perpetual ID:
+
+```bash
+TPSL_SYMBOL=ETH-PERP RUN_TPSL_DEMO=1 npm run example
+```
+
+Edit an existing TP plan and cancel another by hash:
+
+```bash
+RUN_TPSL_EDIT=1 TPSL_EDIT_TP_PLAN_ID=<plan-id> TPSL_CANCEL_HASH=<plan-hash> npm run example
+```
+
+These flows map directly to the SDK calls shown in the [Manage Existing Position TP/SL Orders](#manage-existing-position-tpsl-orders) section if you prefer to script them manually.
 
 ## 📖 Usage Guide
 
@@ -119,6 +256,38 @@ if (withdrawResult) {
 ```
 
 **Note:** These methods execute on-chain transactions on Sui blockchain. Make sure you have sufficient USDC balance in your wallet before depositing, and sufficient balance in your exchange account before withdrawing.
+
+### Adjust Preferred Leverage
+
+Match the web client's leverage settings through the same REST API:
+
+```typescript
+await sdk.adjustLeverage({
+  symbol: "BTC-PERP",
+  leverage: "5", // 5x leverage
+  marginType: "ISOLATED", // optional, defaults to ISOLATED
+});
+```
+
+### Add or Remove Position Margin (On-chain)
+
+Interact with the on-chain contracts to add or remove isolated margin. These actions spend gas and require sufficient balances.
+
+```typescript
+// Add 2 USDC margin to BTC-PERP
+await sdk.addMargin({
+  amount: 2,
+  symbol: "BTC-PERP",
+});
+
+// Remove 1 USDC margin from BTC-PERP
+await sdk.removeMargin({
+  amount: 1,
+  symbol: "BTC-PERP",
+});
+```
+
+> ⚠️ Margin operations are on-chain transactions. Double-check the amount and symbol before running them.
 
 ### Place Order
 
@@ -480,13 +649,66 @@ async function tradingFlow() {
     console.log("Order placed:", orderResult.data);
   }
 
-  // 5. Check open orders
+  // 5. Adjust preferred leverage for BTC perpetuals
+  const leverageUpdate = await sdk.adjustLeverage({
+    symbol: "BTC-PERP",
+    leverage: "12",
+    marginType: "ISOLATED",
+  });
+
+  if (leverageUpdate.status) {
+    console.log("Leverage updated:", leverageUpdate.data);
+  } else {
+    console.warn("Leverage update failed:", leverageUpdate.error);
+  }
+
+  // 6. Create and manage TP/SL plans for the active BTC position
+  const tpSlResult = await sdk.placePositionTpSlOrders({
+    symbol: "BTC-PERP",
+    side: OrderSide.SELL,
+    isLong: true,
+    leverage: "10",
+    quantity: "0.1",
+    tp: {
+      triggerPrice: "55000",
+      orderType: OrderType.LIMIT,
+      orderPrice: "55000",
+      tpslType: "position",
+    },
+    sl: {
+      triggerPrice: "45000",
+      orderType: OrderType.MARKET,
+      tpslType: "position",
+    },
+  });
+
+  if (tpSlResult.status) {
+    console.log("TP/SL plans placed:", tpSlResult.data);
+    const positionId = tpSlResult.data?.positionId ?? "<position-id>";
+    const plans = await sdk.getPositionTpSl(positionId, "position");
+
+    if (plans.status) {
+      console.log("Current TP/SL plans:", plans.data);
+
+      if (plans.data && plans.data.length > 0) {
+        const cancelTpSl = await sdk.cancelTpSlOrders({
+          symbol: "BTC-PERP",
+          orderHashes: [plans.data[0].hash],
+        });
+        console.log("Cancelled TP/SL plan:", cancelTpSl);
+      }
+    }
+  } else {
+    console.warn("TP/SL placement failed:", tpSlResult.error);
+  }
+
+  // 7. Check open orders
   const openOrders = await sdk.getOpenOrders("BTC-PERP");
   if (openOrders.status) {
     console.log("Open Orders:", openOrders.data);
   }
 
-  // 6. Cancel an order (if needed)
+  // 8. Cancel an order (if needed)
   if (openOrders.status && openOrders.data && openOrders.data.length > 0) {
     const cancelResult = await sdk.cancelOrder({
       symbol: "BTC-PERP",
@@ -495,9 +717,11 @@ async function tradingFlow() {
     console.log("Cancel result:", cancelResult);
   }
 
-  // 7. Withdraw funds from exchange bank account
+  // 9. Withdraw funds from exchange bank account
   console.log("Withdrawing 50 USDC from bank...");
   await sdk.withdrawFromBank(50);
+
+  
 }
 
 tradingFlow();
@@ -505,10 +729,7 @@ tradingFlow();
 
 ### Example Scripts
 
-- `npm run example` – Basic end-to-end usage
-- `npm run example:limit` – Limit order workflow
-- `npm run example:orderbook` – Fetch order book snapshots
-- `npm run example:tpsl` – Manage position TP/SL (set `RUN_TPSL_DEMO=1`)
+- `npm run example` – Runs `examples/index.ts`. Enable extra steps with env flags such as `RUN_LIMIT_ORDER=1`, `RUN_MARGIN_ADD=1`, `RUN_TPSL_DEMO=1`, etc.
 
 ## License
 

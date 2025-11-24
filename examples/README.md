@@ -1,297 +1,60 @@
-# Example Files
+# Unified Demo (`examples/index.ts`)
 
-This directory contains usage examples for the DipCoin Perpetual Trading SDK.
+The `examples` directory now contains a **single, fully orchestrated** workflow: `examples/index.ts`. It supersedes the previous standalone scripts (`basic-usage`, `limit-order`, `orderbook`, `tpsl-example`, `leverage-and-margin`) and runs them in a deterministic order so you can reproduce onboarding, trading, risk control, and market-data flows from one entry point.
 
-## File List
+## Highlights
 
-### basic-usage.ts
+- 🔐 Loads credentials from `.env`, authenticates, and prints wallet metadata.
+- 💰 Optional deposits / withdrawals to move funds between wallet and exchange.
+- 📊 Fetches account info, open positions, and pending orders for the active symbol.
+- 🛒 Places market or limit orders (opt-in) and can cancel the first pending order.
+- 📈 Streams a concise order-book + ticker snapshot for quick market checks.
+- ⚙️ Adjusts preferred leverage + manages on-chain isolated margin when requested.
+- 🎯 Manages TP/SL plans end-to-end (create, list, edit, cancel) with existing env knobs.
 
-Basic usage example demonstrating core SDK features:
-
-- ✅ Initialize SDK
-- ✅ Authentication (Onboarding)
-- ✅ Deposit to bank account
-- ✅ Withdraw from bank account
-- ✅ Query account information
-- ✅ Query positions
-- ✅ Query open orders
-- ✅ Get trading pairs list
-- ✅ Place order (Market Order)
-- ✅ Cancel order
-
-### limit-order.ts
-
-Limit order example demonstrating how to place LIMIT orders:
-
-- ✅ Initialize SDK
-- ✅ Authentication (Onboarding)
-- ✅ Get trading pairs and PerpetualID
-- ✅ Query account information
-- ✅ Place LIMIT order (price required)
-- ✅ Query open orders
-
-### orderbook.ts
-
-OrderBook and Ticker example demonstrating how to get market data:
-
-- ✅ Initialize SDK
-- ✅ Authentication (Onboarding)
-- ✅ Get trading pairs list
-- ✅ Get OrderBook for a specific trading pair
-- ✅ Display bids (buy orders) and asks (sell orders)
-- ✅ Calculate market spread and mid price
-- ✅ Get OrderBook for multiple symbols
-- ✅ Get Ticker information (price, volume, 24h stats)
-- ✅ Display comprehensive ticker data
-- ✅ Get Ticker for multiple symbols
-
-## Running Examples
-
-### Prerequisites
-
-1. Install project dependencies:
-   ```bash
-   npm install
-   ```
-
-2. Configure environment variables:
-   ```bash
-   # Copy example file
-   cp .env.example .env
-   
-   # Edit .env file and add your private key
-   # PRIVATE_KEY=your-private-key-here
-   ```
-
-### Running Methods
+## Running the Demo
 
 ```bash
-# Run basic example (Market Order)
+# Default read-only run (no orders or on-chain actions)
 npm run example
 
-# Run limit order example
-npm run example:limit
-
-# Run orderbook example
-npm run example:orderbook
-
-# Or use tsx directly
-tsx examples/basic-usage.ts
-tsx examples/limit-order.ts
-tsx examples/orderbook.ts
+# Allow extra steps by toggling env flags
+RUN_MARKET_ORDER=1 RUN_LIMIT_ORDER=1 npm run example
 ```
 
-## Example Instructions
+By default, only **read-only** operations execute. Every trading or on-chain action must be explicitly enabled to prevent accidents.
 
-### 1. Initialize SDK
+### Common Flags
 
-```typescript
-const sdk = initDipCoinPerpSDK(privateKey, {
-  network: "testnet", // or "mainnet"
-});
-```
+| Flag | Description | Notes |
+| --- | --- | --- |
+| `RUN_DEPOSIT=1` | Deposit `DEPOSIT_AMOUNT` USDC (default 10) | On-chain |
+| `RUN_WITHDRAW=1` | Withdraw `WITHDRAW_AMOUNT` USDC (default 5) | On-chain |
+| `RUN_MARKET_ORDER=1` | Submit `MARKET_ORDER_QTY` at `MARKET_ORDER_LEVERAGE` | Requires PerpID |
+| `RUN_LIMIT_ORDER=1` | Submit a limit order at `LIMIT_ORDER_PRICE` | Provide `LIMIT_ORDER_SIDE` if needed |
+| `RUN_CANCEL_ORDER=1` | Cancel the first open order on the active symbol | Uses `sdk.getOpenOrders()` |
+| `RUN_MARKET_DATA=0` | Disable order-book/ticker printing | Default is `1` |
+| `RUN_ADJUST_LEVERAGE=1` | Update preferred leverage using REST | Safe (off-chain) |
+| `RUN_MARGIN_ADD=1` / `RUN_MARGIN_REMOVE=1` | Add or remove `MARGIN_AMOUNT` isolated margin | On-chain |
+| `RUN_TPSL_DEMO=1` | Place TP/SL plans (uses `TPSL_*` vars) | Requires open position or overrides |
+| `RUN_TPSL_EDIT=1` | Edit plans referenced by `TPSL_EDIT_TP_PLAN_ID` / `TPSL_EDIT_SL_PLAN_ID` | Requires plan IDs |
 
-### 2. Deposit and Withdraw
+All historical environment variables (e.g., `TPSL_SYMBOL`, `MARGIN_SYMBOL`, `POSITION_ID`) keep the same semantics so existing tooling remains compatible.
 
-#### Deposit to Bank Account
+## Suggested Workflow
 
-Deposit USDC from wallet to exchange bank account for trading collateral:
+1. **Dry Run** – `npm run example`  
+   Verifies connectivity, authentication, and read-only endpoints.
+2. **Paper Trading** – enable `RUN_LIMIT_ORDER=1` with a very small quantity.  
+   Confirm new orders appear in the open-order list and cancel them with `RUN_CANCEL_ORDER=1`.
+3. **Margin Utilities** – toggle `RUN_ADJUST_LEVERAGE=1` to mirror UI settings, then try `RUN_MARGIN_ADD=1` / `RUN_MARGIN_REMOVE=1` with a nominal `MARGIN_AMOUNT`.
+4. **Risk Controls** – set `RUN_TPSL_DEMO=1 TPSL_SYMBOL=BTC-PERP POSITION_ID=<id>` to create or inspect TP/SL orders.
 
-```typescript
-// Deposit 10 USDC to bank account
-await sdk.depositToBank(10);
-console.log("Deposit successful!");
-```
+## Safety Checklist
 
-**Note:**
-- This is an on-chain transaction on Sui blockchain
-- Ensure you have sufficient USDC balance in your wallet
-- After deposit, funds will be available in the exchange account for trading
+- ✅ Always point to `testnet` while experimenting (`NETWORK=testnet`).
+- ✅ Keep `RUN_*` flags unset unless you intend to perform that action.
+- ✅ Double-check `LIMIT_ORDER_PRICE`, `MARKET_ORDER_QTY`, and `MARGIN_AMOUNT` before running.
+- ✅ Export `PRIVATE_KEY` via `.env` and never commit it.
 
-#### Withdraw from Bank Account
-
-Withdraw USDC from exchange bank account back to wallet:
-
-```typescript
-// Withdraw 5 USDC from bank account
-await sdk.withdrawFromBank(5);
-console.log("Withdraw successful!");
-```
-
-**Note:**
-- This is an on-chain transaction on Sui blockchain
-- Ensure you have sufficient balance in the exchange account
-- After withdrawal, funds will be returned to your wallet address
-
-### 3. Query Account Information
-
-```typescript
-const accountInfo = await sdk.getAccountInfo();
-if (accountInfo.status) {
-  console.log("Wallet Balance:", accountInfo.data?.walletBalance);
-  console.log("Account Value:", accountInfo.data?.accountValue);
-  console.log("Free Collateral:", accountInfo.data?.freeCollateral);
-  console.log("Unrealized PnL:", accountInfo.data?.totalUnrealizedProfit);
-}
-```
-
-### 4. Query Positions
-
-```typescript
-const positions = await sdk.getPositions();
-if (positions.status) {
-  positions.data?.forEach(pos => {
-    console.log(`${pos.symbol}: ${pos.side} ${pos.quantity}`);
-  });
-}
-```
-
-### 5. Query Open Orders
-
-```typescript
-const orders = await sdk.getOpenOrders();
-if (orders.status) {
-  orders.data?.forEach(order => {
-    console.log(`${order.symbol}: ${order.side} ${order.quantity} @ ${order.price}`);
-  });
-}
-```
-
-### 6. Place Order
-
-#### Market Order
-
-```typescript
-// First get PerpetualID
-const perpId = await sdk.getPerpetualID("BTC-PERP");
-
-const result = await sdk.placeOrder({
-  symbol: "BTC-PERP",
-  market: perpId, // REQUIRED: PerpetualID
-  side: OrderSide.BUY,
-  orderType: OrderType.MARKET,
-  quantity: "0.01", // Small quantity for testing
-  leverage: "10",
-});
-```
-
-#### Limit Order
-
-```typescript
-// First get PerpetualID
-const perpId = await sdk.getPerpetualID("BTC-PERP");
-
-const result = await sdk.placeOrder({
-  symbol: "BTC-PERP",
-  market: perpId, // REQUIRED: PerpetualID
-  side: OrderSide.BUY,
-  orderType: OrderType.LIMIT,
-  price: "50000", // REQUIRED for LIMIT orders
-  quantity: "0.01",
-  leverage: "10",
-});
-```
-
-### 7. Get OrderBook
-
-Get the order book (bids and asks) for a trading pair:
-
-```typescript
-const orderBook = await sdk.getOrderBook("BTC-PERP");
-if (orderBook.status && orderBook.data) {
-  console.log("Bids (Buy Orders):", orderBook.data.bids);
-  console.log("Asks (Sell Orders):", orderBook.data.asks);
-  
-  // Access best bid and ask
-  if (orderBook.data.bids.length > 0) {
-    const bestBid = orderBook.data.bids[0];
-    console.log(`Best Bid: ${bestBid.price}, Quantity: ${bestBid.quantity}`);
-  }
-  
-  if (orderBook.data.asks.length > 0) {
-    const bestAsk = orderBook.data.asks[0];
-    console.log(`Best Ask: ${bestAsk.price}, Quantity: ${bestAsk.quantity}`);
-  }
-  
-  // Calculate spread
-  if (orderBook.data.bids.length > 0 && orderBook.data.asks.length > 0) {
-    const bestBid = parseFloat(orderBook.data.bids[0].price);
-    const bestAsk = parseFloat(orderBook.data.asks[0].price);
-    const spread = bestAsk - bestBid;
-    const midPrice = (bestBid + bestAsk) / 2;
-    console.log(`Spread: ${spread}, Mid Price: ${midPrice}`);
-  }
-}
-```
-
-**Note:**
-- OrderBook is market data and may not require authentication
-- Bids are sorted from highest to lowest price
-- Asks are sorted from lowest to highest price
-- Useful for analyzing market depth and liquidity
-
-### 8. Get Ticker
-
-Get ticker information (price, volume, 24h statistics) for a trading pair:
-
-```typescript
-const ticker = await sdk.getTicker("BTC-PERP");
-if (ticker.status && ticker.data) {
-  const t = ticker.data;
-  
-  // Price information
-  console.log("Last Price:", t.lastPrice);
-  console.log("Mark Price:", t.markPrice);
-  console.log("Oracle Price:", t.oraclePrice);
-  
-  // Best bid/ask
-  console.log("Best Bid:", t.bestBidPrice);
-  console.log("Best Ask:", t.bestAskPrice);
-  
-  // 24h statistics
-  console.log("24h High:", t.high24h);
-  console.log("24h Low:", t.low24h);
-  console.log("24h Volume:", t.volume24h, "USDC");
-  
-  // Price change
-  console.log("24h Change:", t.change24h);
-  console.log("24h Change Rate:", t.rate24h, "%");
-  
-  // Additional info
-  console.log("Funding Rate:", t.fundingRate);
-  console.log("Open Interest:", t.openInterest);
-}
-```
-
-**Note:**
-- Ticker is market data and may not require authentication
-- Contains comprehensive market information including prices, volumes, and statistics
-- Useful for displaying market overview and price tracking
-- Includes 24-hour statistics for price movements and trading activity
-
-### 9. Cancel Order (Manual Enable Required)
-
-Uncomment the code to test order cancellation:
-
-```typescript
-const cancelResult = await sdk.cancelOrder({
-  symbol: "BTC-PERP",
-  orderHashes: [orderHash],
-});
-```
-
-## Important Notes
-
-1. **Private Key Security**: Never commit private keys to Git or public code
-2. **Test Environment**: It's recommended to test on testnet first
-3. **Small Quantity Testing**: Use small quantities when placing orders for testing
-4. **Error Handling**: All operations should check the returned `status` field
-5. **Deposit and Withdraw**:
-   - Both deposit and withdraw are on-chain transactions that require Gas fees
-   - Ensure sufficient USDC balance in wallet before depositing
-   - Ensure sufficient balance in exchange account before withdrawing
-   - It's recommended to test deposit and withdraw functions on testnet first
-
-## More Examples
-
-For more usage examples, please refer to `README.md` and `USAGE.md` in the project root directory.
+Refer to the root-level `README.md` and `USAGE.md` for a deeper dive into SDK APIs and advanced configuration tips.

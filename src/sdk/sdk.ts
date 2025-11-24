@@ -1,18 +1,22 @@
 // Copyright (c) 2025 Dipcoin LLC
 // SPDX-License-Identifier: Apache-2.0
 
-import { ExchangeOnChain, OrderSigner } from "@dipcoinlab/perp-ts-library";
-import { SuiClient, getFullnodeUrl } from "@mysten/sui/client";
+import { ExchangeOnChain, OrderSigner, TransactionBuilder } from "@dipcoinlab/perp-ts-library";
+import { SuiClient, SuiTransactionBlockResponse, getFullnodeUrl } from "@mysten/sui/client";
 import { Keypair } from "@mysten/sui/cryptography";
+import { Transaction } from "@mysten/sui/transactions";
 import BigNumber from "bignumber.js";
-import { API_ENDPOINTS, DECIMALS, ONBOARDING_MESSAGE } from "../constants";
+import { SuiPriceServiceConnection, SuiPythClient } from "@pythnetwork/pyth-sui-js";
+import { API_ENDPOINTS, DECIMALS, ONBOARDING_MESSAGE, PYTH_CONFIG } from "../constants";
 import { HttpClient } from "../services/httpClient";
 import {
   AccountInfo,
   AccountInfoResponse,
+  AdjustLeverageParams,
   CancelOrderParams,
   CancelTpSlOrdersParams,
   DipCoinPerpSDKOptions,
+  MarginAdjustmentParams,
   OpenOrder,
   OpenOrdersResponse,
   OrderBook,
@@ -31,7 +35,8 @@ import {
   TpSlMode,
   TpSlOrderConfig,
   TradingPair,
-  TradingPairsResponse
+  TradingPairsResponse,
+  UserConfig
 } from "../types";
 import {
   formatError,
@@ -53,6 +58,13 @@ export class DipCoinPerpSDK {
   private jwtToken?: string;
   private isAuthenticating: boolean = false;
   private exchangeOnChain: ExchangeOnChain;
+  private deploymentConfig: any;
+  private suiClient: SuiClient;
+  private transactionBuilder: TransactionBuilder;
+  private priceServiceConnection?: SuiPriceServiceConnection;
+  private pythClient?: SuiPythClient;
+  private tradingPairsCache?: TradingPair[];
+  private tradingPairsCacheTimestamp?: number;
 
   /**
    * Initialize SDK
@@ -73,10 +85,18 @@ export class DipCoinPerpSDK {
     // Get wallet address
     this.walletAddress = this.keypair.getPublicKey().toSuiAddress();
     this.httpClient.setWalletAddress(this.walletAddress);
-    this.exchangeOnChain = new ExchangeOnChain(
-      readFile(`config/deployed/${options.network}/main_contract.json`),
-      new SuiClient({ url: getFullnodeUrl(options.network) }),
-      this.keypair
+    this.deploymentConfig = readFile(`config/deployed/${options.network}/main_contract.json`);
+    const rpcUrl = options.customRpc || getFullnodeUrl(options.network);
+    this.suiClient = new SuiClient({ url: rpcUrl });
+    this.exchangeOnChain = new ExchangeOnChain(this.deploymentConfig, this.suiClient, this.keypair);
+
+    const packageId = this.getDeploymentPackageId();
+    const protocolConfigId = this.getDeploymentProtocolConfigId();
+    this.transactionBuilder = new TransactionBuilder(
+      packageId,
+      protocolConfigId,
+      this.deploymentConfig,
+      this.suiClient as any
     );
   }
 
@@ -508,6 +528,158 @@ export class DipCoinPerpSDK {
           data: response,
         };
       }
+    } catch (error) {
+      return {
+        status: false,
+        error: formatError(error),
+      };
+    }
+  }
+
+  /**
+   * Adjust preferred leverage for a symbol (matches ts-frontend behavior)
+   * @param params Adjust leverage parameters
+   */
+  async adjustLeverage(params: AdjustLeverageParams): Promise<SDKResponse<OrderResponse>> {
+    try {
+      const authResult = await this.authenticate();
+      if (!authResult.status) {
+        return {
+          status: false,
+          error: authResult.error || "Authentication failed",
+        };
+      }
+
+      const { symbol, leverage, marginType = "ISOLATED" } = params;
+
+      if (!symbol) {
+        throw new Error("Symbol is required for adjusting leverage");
+      }
+
+      if (!this.isPositiveNumber(leverage)) {
+        throw new Error("Leverage must be greater than zero");
+      }
+
+      const payload = {
+        symbol,
+        marginType,
+        leverage: formatNormalToWei(leverage),
+      };
+
+      let response = await this.httpClient.post<OrderResponse>(
+        API_ENDPOINTS.ADJUST_LEVERAGE,
+        payload
+      );
+
+      if (response.code === 1000) {
+        this.clearAuth();
+        const retryAuth = await this.authenticate();
+        if (retryAuth.status) {
+          response = await this.httpClient.post<OrderResponse>(
+            API_ENDPOINTS.ADJUST_LEVERAGE,
+            payload
+          );
+        } else {
+          return {
+            status: false,
+            error: "Authentication expired and refresh failed",
+          };
+        }
+      }
+
+      if (response.code === 200) {
+        return {
+          status: true,
+          data: response,
+        };
+      }
+
+      return {
+        status: false,
+        data: response,
+        error: response.message || "Failed to adjust leverage",
+      };
+    } catch (error) {
+      return {
+        status: false,
+        error: formatError(error),
+      };
+    }
+  }
+
+  /**
+   * Fetch current user config (preferred leverage & margin type) for a symbol
+   * Mirrors ts-frontend behavior: GET /user-config/config + formatWeiToNormal
+   * @param symbol Trading symbol, e.g. "BTC-PERP"
+   */
+  async getUserConfig(symbol: string): Promise<SDKResponse<UserConfig>> {
+    if (!symbol) {
+      return {
+        status: false,
+        error: "Symbol is required",
+      };
+    }
+
+    try {
+      const authResult = await this.authenticate();
+      if (!authResult.status) {
+        return {
+          status: false,
+          error: authResult.error || "Authentication failed",
+        };
+      }
+
+      const params = { symbol };
+      let response = await this.httpClient.get<UserConfig>(API_ENDPOINTS.GET_USER_CONFIG, {
+        params,
+      });
+
+      if (response.code === 1000) {
+        this.clearAuth();
+        const retryAuth = await this.authenticate();
+        if (retryAuth.status) {
+          response = await this.httpClient.get<UserConfig>(API_ENDPOINTS.GET_USER_CONFIG, {
+            params,
+          });
+        } else {
+          return {
+            status: false,
+            error: "Authentication expired and refresh failed",
+          };
+        }
+      }
+
+      if (response.code === 200 && response.data) {
+        const rawConfig: Record<string, any> = Array.isArray(response.data)
+          ? response.data[0]
+          : response.data;
+
+        if (!rawConfig) {
+          return {
+            status: false,
+            error: "User config not found",
+          };
+        }
+
+        const leverageWei = rawConfig.leverage ?? rawConfig.leverageWei ?? "0";
+        const normalizedConfig: UserConfig = {
+          ...rawConfig,
+          symbol: rawConfig.symbol || symbol,
+          marginType: rawConfig.marginType || rawConfig.marginTypeEnum,
+          leverageWei,
+          leverage: this.formatWeiToNormal(leverageWei),
+        };
+
+        return {
+          status: true,
+          data: normalizedConfig,
+        };
+      }
+
+      return {
+        status: false,
+        error: response.message || "Failed to fetch user config",
+      };
     } catch (error) {
       return {
         status: false,
@@ -1533,6 +1705,299 @@ export class DipCoinPerpSDK {
     }
 
     return ticker;
+  }
+
+  /**
+   * Add isolated margin to an existing position (on-chain)
+   * @param params Margin adjustment parameters
+   */
+  async addMargin(params: MarginAdjustmentParams): Promise<SuiTransactionBlockResponse> {
+    const transaction = await this.buildMarginTransaction(params, "add");
+    if (transaction) {
+      return this.exchangeOnChain.executeTxBlock(transaction, this.keypair);
+    }
+    const fallbackPayload = this.buildMarginCallArgs(params, "add");
+    return this.exchangeOnChain.addMargin(fallbackPayload);
+  }
+
+  /**
+   * Remove isolated margin from an existing position (on-chain)
+   * @param params Margin adjustment parameters
+   */
+  async removeMargin(params: MarginAdjustmentParams): Promise<SuiTransactionBlockResponse> {
+    const transaction = await this.buildMarginTransaction(params, "remove");
+    if (transaction) {
+      return this.exchangeOnChain.executeTxBlock(transaction, this.keypair);
+    }
+    const fallbackPayload = this.buildMarginCallArgs(params, "remove");
+    return this.exchangeOnChain.removeMargin(fallbackPayload);
+  }
+
+  /**
+   * Build ExchangeOnChain call args for margin adjustments
+   */
+  private buildMarginCallArgs(
+    params: MarginAdjustmentParams,
+    action: "add" | "remove"
+  ): {
+    amount: number;
+    account: string;
+    perpID?: string;
+    market?: string;
+    subAccountsMapID?: string;
+    gasBudget?: number;
+    txHash?: string;
+  } {
+    const {
+      amount,
+      accountAddress,
+      symbol,
+      market,
+      perpId,
+      subAccountsMapId,
+      gasBudget,
+      txHash,
+    } = params;
+
+    if (!this.isPositiveNumber(amount)) {
+      throw new Error(`Amount must be greater than zero to ${action} margin`);
+    }
+
+    const amountNumber = new BigNumber(amount).toNumber();
+    if (!Number.isFinite(amountNumber)) {
+      throw new Error("Amount is too large to represent as a number");
+    }
+
+    const marketSymbolInput = market || symbol;
+    const marketSymbol = marketSymbolInput ? marketSymbolInput.toUpperCase() : undefined;
+    const resolvedPerpId =
+      perpId || (marketSymbol ? this.resolvePerpIdFromDeployment(marketSymbol) : undefined);
+
+    if (!marketSymbol && !resolvedPerpId) {
+      throw new Error("Either market/symbol or perpId must be provided for margin adjustments");
+    }
+
+    return {
+      amount: amountNumber,
+      account: accountAddress || this.walletAddress,
+      market: marketSymbol,
+      perpID: resolvedPerpId,
+      subAccountsMapID: subAccountsMapId,
+      gasBudget,
+      txHash,
+    };
+  }
+
+  private getDeploymentPackageId(): string {
+    const packages = this.deploymentConfig?.packages;
+    if (!packages || !packages.length) {
+      throw new Error("Deployment config missing packages array");
+    }
+    return packages[packages.length - 1];
+  }
+
+  private getDeploymentProtocolConfigId(): string {
+    const protocolId = this.deploymentConfig?.objects?.ProtocolConfig?.id;
+    if (!protocolId) {
+      throw new Error("Deployment config missing ProtocolConfig id");
+    }
+    return protocolId;
+  }
+
+  private async buildMarginTransaction(
+    params: MarginAdjustmentParams,
+    action: "add" | "remove"
+  ): Promise<Transaction | undefined> {
+    if (!this.transactionBuilder) {
+      return undefined;
+    }
+    const payload = this.buildMarginCallArgs(params, action);
+    const updatePriceTx = payload.market
+      ? await this.buildUpdatePriceTransaction(payload.market)
+      : undefined;
+    const baseTx = updatePriceTx || new Transaction();
+    if (action === "add") {
+      return this.transactionBuilder.exchange_addMarginTx(payload, baseTx, params.gasBudget);
+    }
+    return this.transactionBuilder.exchange_removeMarginTx(payload, baseTx, params.gasBudget);
+  }
+
+  private async buildUpdatePriceTransaction(symbol: string): Promise<Transaction | undefined> {
+    if (!symbol) {
+      return undefined;
+    }
+    try {
+      if (this.options.network === "mainnet") {
+        return await this.buildMainnetPriceUpdateTransaction(symbol);
+      }
+      return await this.buildTestnetPriceUpdateTransaction(symbol);
+    } catch (error) {
+      console.warn(`Failed to build price update transaction for ${symbol}:`, error);
+      return undefined;
+    }
+  }
+
+  private async buildMainnetPriceUpdateTransaction(symbol: string): Promise<Transaction | undefined> {
+    const priceInfoObjectId = this.getPriceInfoObjectId(symbol);
+    const priceFeedId = await this.resolvePriceFeedId(symbol);
+    if (!priceInfoObjectId || !priceFeedId) {
+      return undefined;
+    }
+
+    this.ensurePythClients();
+    if (!this.priceServiceConnection || !this.pythClient) {
+      return undefined;
+    }
+
+    const tx = new Transaction();
+    const priceIds = [priceFeedId];
+    const priceUpdateData = await this.priceServiceConnection.getPriceFeedsUpdateData(priceIds);
+
+    const [priceInfoObject, clockObject] = await this.suiClient.multiGetObjects({
+      ids: [priceInfoObjectId, "0x6"],
+      options: { showContent: true, showBcs: true, showType: true },
+    });
+
+    const oracleTime = this.extractOracleArrivalTime(priceInfoObject);
+    const clockTime = this.extractClockTimeSeconds(clockObject);
+
+    if (clockTime - oracleTime > 5) {
+      await this.pythClient.updatePriceFeeds(tx, priceUpdateData, priceIds);
+    }
+
+    return tx;
+  }
+
+  private async buildTestnetPriceUpdateTransaction(
+    symbol: string
+  ): Promise<Transaction | undefined> {
+    try {
+      const oraclePrice = await this.exchangeOnChain.getOraclePrice(symbol);
+      if (oraclePrice === undefined || oraclePrice === null) {
+        return undefined;
+      }
+      return this.transactionBuilder.price_info_setOraclePriceTx({
+        price: Number(oraclePrice),
+        market: symbol,
+      });
+    } catch (error) {
+      console.warn(`Failed to fetch oracle price for ${symbol}:`, error);
+      return undefined;
+    }
+  }
+
+  private getPriceInfoObjectId(symbol: string): string | undefined {
+    const canonical = symbol?.toUpperCase();
+    const market = this.getDeploymentMarket(canonical);
+    return market?.Objects?.PriceInfoObject?.id;
+  }
+
+  private getDeploymentMarket(symbol?: string): any {
+    if (!symbol) {
+      return undefined;
+    }
+    const markets = this.deploymentConfig?.markets;
+    const canonical = symbol.toUpperCase();
+    return markets?.[canonical] || markets?.[symbol];
+  }
+
+  private async resolvePriceFeedId(symbol: string): Promise<string | undefined> {
+    const canonical = symbol?.toUpperCase();
+    const deploymentMarket = this.getDeploymentMarket(canonical);
+    const configFeed =
+      deploymentMarket?.Config?.priceInfoFeedId || deploymentMarket?.Config?.priceIdentifierId;
+    if (configFeed) {
+      return configFeed;
+    }
+
+    const pairs = await this.getCachedTradingPairs();
+    const match = pairs.find(
+      (pair) => pair.symbol?.toUpperCase() === canonical || pair.symbol === symbol
+    );
+    if (match) {
+      return (match as any).priceIdentifierId || (match as any).priceInfoFeedId;
+    }
+    return undefined;
+  }
+
+  private async getCachedTradingPairs(): Promise<TradingPair[]> {
+    const cacheAge = this.tradingPairsCacheTimestamp
+      ? Date.now() - this.tradingPairsCacheTimestamp
+      : Infinity;
+    if (this.tradingPairsCache && cacheAge < 60_000) {
+      return this.tradingPairsCache;
+    }
+
+    const result = await this.getTradingPairs();
+    if (result.status && result.data) {
+      this.tradingPairsCache = result.data;
+      this.tradingPairsCacheTimestamp = Date.now();
+      return result.data;
+    }
+
+    return this.tradingPairsCache || [];
+  }
+
+  private ensurePythClients(): void {
+    const config = PYTH_CONFIG[this.options.network];
+    if (!config) {
+      return;
+    }
+
+    if (!this.priceServiceConnection) {
+      this.priceServiceConnection = new SuiPriceServiceConnection(config.priceServiceUrl);
+    }
+
+    if (!this.pythClient) {
+      this.pythClient = new SuiPythClient(
+        this.suiClient as any,
+        config.pythStateId,
+        config.wormholeStateId
+      );
+    }
+  }
+
+  private extractOracleArrivalTime(objectResponse: any): number {
+    const priceInfo =
+      objectResponse?.data?.content &&
+      "fields" in objectResponse.data.content &&
+      (objectResponse.data.content as any).fields?.price_info?.fields?.arrival_time;
+    if (typeof priceInfo === "number") {
+      return priceInfo;
+    }
+    if (typeof priceInfo === "string") {
+      const parsed = Number(priceInfo);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  }
+
+  private extractClockTimeSeconds(objectResponse: any): number {
+    const timestamp =
+      objectResponse?.data?.content &&
+      "fields" in objectResponse.data.content &&
+      (objectResponse.data.content as any).fields?.timestamp_ms;
+    if (typeof timestamp === "number") {
+      return timestamp / 1000;
+    }
+    if (typeof timestamp === "string") {
+      const parsed = Number(timestamp);
+      return Number.isFinite(parsed) ? parsed / 1000 : 0;
+    }
+    return 0;
+  }
+
+  /**
+   * Resolve perpId from deployment data
+   */
+  private resolvePerpIdFromDeployment(market: string): string | undefined {
+    try {
+      const perpId = this.exchangeOnChain.getPerpetualID(market);
+      return perpId || undefined;
+    } catch (error) {
+      console.warn(`Failed to resolve PerpetualID for market ${market}:`, error);
+      return undefined;
+    }
   }
 
   /**

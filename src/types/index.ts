@@ -43,6 +43,22 @@ export interface TradingPairsResponse {
 }
 
 /**
+ * User configuration (preferred leverage, margin type, etc.)
+ */
+export interface UserConfig {
+  /** Trading symbol the config applies to */
+  symbol: string;
+  /** Preferred leverage in normal units (human-readable) */
+  leverage: string;
+  /** Margin type, e.g. ISOLATED or CROSS */
+  marginType?: string;
+  /** Raw leverage value returned by backend (wei string) */
+  leverageWei?: string;
+  /** Other backend specific fields */
+  [key: string]: any;
+}
+
+/**
  * Order type (MARKET or LIMIT)
  */
 export enum OrderType {
@@ -96,6 +112,18 @@ export interface CancelOrderParams {
   orderHashes: string[];
   /** Parent address (optional, defaults to wallet address) */
   parentAddress?: string;
+}
+
+/**
+ * Parameters for adjusting preferred leverage on server
+ */
+export interface AdjustLeverageParams {
+  /** Trading symbol */
+  symbol: string;
+  /** Desired leverage in normal units (e.g. 5 means 5x) */
+  leverage: number | string;
+  /** Margin type (defaults to ISOLATED to match frontend) */
+  marginType?: string;
 }
 
 /**
@@ -280,6 +308,28 @@ export interface OpenOrdersResponse {
   pageNum?: number;
   pageSize?: number;
   total?: number;
+}
+
+/**
+ * Margin adjustment payload for on-chain operations
+ */
+export interface MarginAdjustmentParams {
+  /** Amount of USDC margin to add/remove (in normal units) */
+  amount: number | string;
+  /** Trading symbol (alias for market) */
+  symbol?: string;
+  /** Market symbol, e.g. BTC-PERP */
+  market?: string;
+  /** Optional PerpetualID (if already known) */
+  perpId?: string;
+  /** Override account address (defaults to SDK wallet) */
+  accountAddress?: string;
+  /** Optional sub account table ID */
+  subAccountsMapId?: string;
+  /** Optional gas budget for transaction */
+  gasBudget?: number;
+  /** Optional tx hash tag */
+  txHash?: string;
 }
 
 /**

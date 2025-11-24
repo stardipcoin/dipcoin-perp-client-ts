@@ -42,7 +42,17 @@ var rollup_config = [
         },
       }),
     ],
-    external: ["axios", "@mysten/sui", "@dipcoinlab/perp-ts-library", "bignumber.js", "buffer", "fs", "path", "url"],
+    external: [
+      "axios",
+      "@mysten/sui",
+      "@dipcoinlab/perp-ts-library",
+      "bignumber.js",
+      "buffer",
+      "node:buffer",
+      "fs",
+      "path",
+      "url",
+    ],
   },
 ];
 export { rollup_config as default };

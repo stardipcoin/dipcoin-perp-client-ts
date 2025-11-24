@@ -1,6 +1,6 @@
 {
   "name": "@dipcoinlab/perp-client-ts",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "description": "TypeScript SDK for DipCoin Perpetual Trading on Sui blockchain",
   "exports": {
     ".": {
@@ -23,10 +23,7 @@
     "test": "jest",
     "clean": "rm -rf dist build package",
     "ts-node": "ts-node",
-    "example": "tsx examples/basic-usage.ts",
-    "example:limit": "tsx examples/limit-order.ts",
-    "example:tpsl": "tsx examples/tpsl-example.ts",
-    "example:orderbook": "tsx examples/orderbook.ts",
+    "example": "tsx examples/index.ts",
     "docs": "typedoc --entryPoints src/index.ts",
     "build-ts": "tsc -p tsconfig.json",
     "build": "rm -rf dist; rollup -c rollup.config.js; mkdir -p dist/config/deployed/mainnet dist/config/deployed/testnet; cp -r src/config/deployed/* dist/config/deployed/"
@@ -42,6 +39,7 @@
   "dependencies": {
     "@dipcoinlab/perp-ts-library": "^0.0.17",
     "@mysten/sui": "^1.20.0",
+    "@pythnetwork/pyth-sui-js": "^2.4.0",
     "@rollup/plugin-commonjs": "^28.0.3",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-terser": "^0.4.4",
