@@ -127,8 +127,10 @@ async function maybeAdjustPreferredLeverage(
 // Show consolidated balances, positions, and pending orders.
 async function showAccountSnapshot(sdk: DipCoinPerpSDK, symbol: string) {
   logSection("Account Snapshot");
-  const accountInfo = await sdk.getAccountInfo();
+  const parentAddress = process.env.VAULT_ADDRESS;
+  const accountInfo = await sdk.getAccountInfo(parentAddress ? { parentAddress } : undefined);
   if (accountInfo.status && accountInfo.data) {
+    if (parentAddress) console.log("(Vault query, parentAddress:", parentAddress, ")");
     console.log("Wallet Balance:", accountInfo.data.walletBalance);
     console.log("Account Value:", accountInfo.data.accountValue);
     console.log("Free Collateral:", accountInfo.data.freeCollateral);
@@ -137,7 +139,8 @@ async function showAccountSnapshot(sdk: DipCoinPerpSDK, symbol: string) {
     console.error("Failed to fetch account info:", accountInfo.error);
   }
 
-  const positions = await sdk.getPositions(symbol);
+  const posParams = parentAddress ? { symbol, parentAddress } : symbol;
+  const positions = await sdk.getPositions(posParams);
   if (positions.status && positions.data?.length) {
     console.log(`\nOpen positions on ${symbol}:`);
     positions.data.forEach((pos) => {
@@ -149,7 +152,10 @@ async function showAccountSnapshot(sdk: DipCoinPerpSDK, symbol: string) {
     console.log(`\nNo open positions detected for ${symbol}.`);
   }
 
-  const openOrders = await sdk.getOpenOrders(symbol);
+  const ordParams = parentAddress
+    ? { symbol, parentAddress }
+    : symbol;
+  const openOrders = await sdk.getOpenOrders(ordParams);
   if (openOrders.status && openOrders.data?.length) {
     console.log(`\nOpen orders on ${symbol}:`);
     openOrders.data.forEach((order) => {
@@ -381,6 +387,55 @@ async function maybeRunMarginFlow(
   }
 }
 
+// Show history orders, funding settlements, balance changes, and oracle price.
+async function maybeShowHistoryData(sdk: DipCoinPerpSDK, symbol: string, enabled: boolean) {
+  if (!enabled) {
+    console.log("ℹ️  History data section skipped (set RUN_HISTORY_DATA=1 to enable).");
+    return;
+  }
+  const parentAddress = process.env.VAULT_ADDRESS;
+
+  logSection("History Orders");
+  const historyOrders = await sdk.getHistoryOrders({ symbol, page: 1, pageSize: 5, parentAddress });
+  if (historyOrders.status && historyOrders.data?.data?.length) {
+    historyOrders.data.data.forEach((order) => {
+      console.log(
+        `- ${order.symbol} ${order.side} ${order.orderType} qty=${order.quantity} price=${order.price} status=${order.status}`
+      );
+    });
+  } else {
+    console.log("No history orders found.");
+  }
+
+  logSection("Funding Settlements");
+  const funding = await sdk.getFundingSettlements({ symbol, page: 1, pageSize: 5, parentAddress });
+  if (funding.status && funding.data?.data?.length) {
+    funding.data.data.forEach((f) => {
+      console.log(`- ${f.symbol} rate=${f.fundingRate} fee=${f.fundingFee}`);
+    });
+  } else {
+    console.log("No funding settlements found.");
+  }
+
+  logSection("Balance Changes");
+  const balanceChanges = await sdk.getBalanceChanges({ page: 1, pageSize: 5, parentAddress });
+  if (balanceChanges.status && balanceChanges.data?.data?.length) {
+    balanceChanges.data.data.forEach((b) => {
+      console.log(`- ${b.type} amount=${b.amount} balance=${b.balance}`);
+    });
+  } else {
+    console.log("No balance changes found.");
+  }
+
+  logSection("Oracle Price");
+  const oracle = await sdk.getOraclePrice(symbol);
+  if (oracle.status && oracle.data) {
+    console.log(`Oracle price for ${symbol}: ${oracle.data}`);
+  } else {
+    console.error("Failed to fetch oracle price:", oracle.error);
+  }
+}
+
 // Demonstrate TP/SL placement, editing, and cancellation workflows.
 async function maybeRunTpSlFlow(sdk: DipCoinPerpSDK, symbol: string, perpId: string | undefined) {
   const runDemo = boolEnv("RUN_TPSL_DEMO");
@@ -534,9 +589,16 @@ async function main() {
 
   const network = (process.env.NETWORK as Network) || "testnet";
   const symbol = stringEnv("DEMO_SYMBOL", "BTC-PERP");
+  const subAccountKey = process.env.SUB_ACCOUNT_KEY;
 
-  const sdk = initDipCoinPerpSDK(privateKey, { network });
+  const sdk = initDipCoinPerpSDK(privateKey, {
+    network,
+    ...(subAccountKey ? { subAccountKey } : {}),
+  });
   console.log("Wallet:", sdk.address);
+  if (sdk.subAccountAddress) {
+    console.log("Sub-account:", sdk.subAccountAddress);
+  }
   console.log("Network:", network);
   console.log("Primary symbol:", symbol);
 
@@ -588,6 +650,8 @@ async function main() {
   await maybeCancelFirstOrder(sdk, symbol, boolEnv("RUN_CANCEL_ORDER"));
 
   await maybeShowMarketData(sdk, symbol, boolEnv("RUN_MARKET_DATA", true));
+
+  await maybeShowHistoryData(sdk, symbol, boolEnv("RUN_HISTORY_DATA"));
 
   const marginSymbol = stringEnv("MARGIN_SYMBOL", symbol);
   await showPreferredLeverage(sdk, marginSymbol);

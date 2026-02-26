@@ -24,6 +24,10 @@ export const API_ENDPOINTS = {
   GET_ORDER_BOOK: "/api/perp-market-api/orderBook",
   GET_TICKER: "/api/perp-market-api/ticker",
   GET_POSITION_TPSL: "/api/perp-trade-api/plan/position/tpsl",
+  HISTORY_ORDERS: "/api/perp-trade-api/history/orders",
+  FUNDING_SETTLEMENTS: "/api/perp-trade-api/history/funding-settlements",
+  BALANCE_CHANGES: "/api/perp-trade-api/history/balance-changes",
+  ORACLE: "/api/perp-market-api/oracle",
 } as const;
 
 /**

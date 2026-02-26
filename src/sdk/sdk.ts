@@ -11,24 +11,34 @@ import { API_ENDPOINTS, DECIMALS, ONBOARDING_MESSAGE, PYTH_CONFIG } from "../con
 import { HttpClient } from "../services/httpClient";
 import {
   AccountInfo,
+  AccountInfoParams,
   AccountInfoResponse,
   AdjustLeverageParams,
+  BalanceChange,
+  BalanceChangesParams,
   CancelOrderParams,
   CancelTpSlOrdersParams,
   DipCoinPerpSDKOptions,
+  FundingSettlement,
+  FundingSettlementsParams,
+  HistoryOrder,
+  HistoryOrdersParams,
   MarginAdjustmentParams,
   OpenOrder,
+  OpenOrdersParams,
   OpenOrdersResponse,
   OrderBook,
   OrderBookEntry,
   OrderResponse,
   OrderSide,
   OrderType,
+  PageResponse,
   PlaceOrderParams,
   PlaceTpSlOrdersParams,
   PlaceTpSlOrdersResult,
   Position,
   PositionTpSlOrder,
+  PositionsParams,
   PositionsResponse,
   SDKResponse,
   Ticker,
@@ -53,10 +63,14 @@ import {
 export class DipCoinPerpSDK {
   private httpClient: HttpClient;
   private keypair: Keypair;
+  private subKeypair?: Keypair;
   private walletAddress: string;
+  private subAddress?: string;
   private options: DipCoinPerpSDKOptions;
   private jwtToken?: string;
+  private subJwtToken?: string;
   private isAuthenticating: boolean = false;
+  private isSubAuthenticating: boolean = false;
   private exchangeOnChain: ExchangeOnChain;
   private deploymentConfig: any;
   private suiClient: SuiClient;
@@ -75,11 +89,17 @@ export class DipCoinPerpSDK {
     this.options = options;
     this.httpClient = new HttpClient(options.apiBaseUrl);
 
-    // Initialize keypair
+    // Initialize main keypair
     if (typeof privateKey === "string") {
       this.keypair = fromExportedKeypair(privateKey);
     } else {
       this.keypair = privateKey;
+    }
+
+    // Initialize sub-account keypair if provided
+    if (options.subAccountKey) {
+      this.subKeypair = fromExportedKeypair(options.subAccountKey);
+      this.subAddress = this.subKeypair.getPublicKey().toSuiAddress();
     }
 
     // Get wallet address
@@ -105,6 +125,13 @@ export class DipCoinPerpSDK {
    */
   get address(): string {
     return this.walletAddress;
+  }
+
+  /**
+   * Get sub-account wallet address (if configured)
+   */
+  get subAccountAddress(): string | undefined {
+    return this.subAddress;
   }
 
   /**
@@ -181,6 +208,82 @@ export class DipCoinPerpSDK {
   }
 
   /**
+   * Authenticate sub-account and get JWT token
+   * Used for trading operations when sub-account is configured
+   */
+  async authenticateSub(): Promise<SDKResponse<string>> {
+    if (!this.subKeypair) {
+      return { status: false, error: "Sub-account keypair not configured" };
+    }
+
+    try {
+      if (this.subJwtToken) {
+        return { status: true, data: this.subJwtToken };
+      }
+
+      if (this.isSubAuthenticating) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        if (this.subJwtToken) {
+          return { status: true, data: this.subJwtToken };
+        }
+      }
+
+      this.isSubAuthenticating = true;
+
+      const messageBytes = new TextEncoder().encode(ONBOARDING_MESSAGE);
+      const signature = await signMessage(this.subKeypair, messageBytes);
+      const subAddress = this.subKeypair.getPublicKey().toSuiAddress();
+
+      const response = await this.httpClient.post<{ token: string }>(API_ENDPOINTS.AUTHORIZE, {
+        userAddress: subAddress,
+        isTermAccepted: true,
+        signature: signature,
+      });
+
+      if (response.code === 200 && response.data?.token) {
+        this.subJwtToken = response.data.token;
+        this.isSubAuthenticating = false;
+        return { status: true, data: this.subJwtToken };
+      } else {
+        this.isSubAuthenticating = false;
+        return { status: false, error: response.message || "Failed to authenticate sub-account" };
+      }
+    } catch (error) {
+      this.isSubAuthenticating = false;
+      return { status: false, error: formatError(error) };
+    }
+  }
+
+  /**
+   * Authenticate for trading operations
+   * Uses sub-account if configured, otherwise falls back to main account
+   */
+  private async authenticateForTrading(): Promise<SDKResponse<string>> {
+    if (this.subKeypair) {
+      const subAuth = await this.authenticateSub();
+      if (subAuth.status && subAuth.data) {
+        this.httpClient.setAuthToken(subAuth.data);
+        if (this.subAddress) {
+          this.httpClient.setWalletAddress(this.subAddress);
+        }
+        return subAuth;
+      }
+      return subAuth;
+    }
+    return this.authenticate();
+  }
+
+  /**
+   * Restore main account auth context after trading operations
+   */
+  private restoreMainAuth(): void {
+    this.httpClient.setWalletAddress(this.walletAddress);
+    if (this.jwtToken) {
+      this.httpClient.setAuthToken(this.jwtToken);
+    }
+  }
+
+  /**
    * Get JWT token, authenticate if needed
    * @param forceRefresh Force refresh the token even if one exists
    * @returns JWT token
@@ -198,6 +301,7 @@ export class DipCoinPerpSDK {
    */
   clearAuth(): void {
     this.jwtToken = undefined;
+    this.subJwtToken = undefined;
     this.httpClient.setAuthToken("");
   }
 
@@ -208,9 +312,10 @@ export class DipCoinPerpSDK {
    */
   async placeOrder(params: PlaceOrderParams): Promise<SDKResponse<OrderResponse>> {
     try {
-      // Ensure authenticated before making request
-      const authResult = await this.authenticate();
+      // Use sub-account auth for trading if configured
+      const authResult = await this.authenticateForTrading();
       if (!authResult.status) {
+        this.restoreMainAuth();
         return {
           status: false,
           error: authResult.error || "Authentication failed",
@@ -242,6 +347,7 @@ export class DipCoinPerpSDK {
         market,
         reduceOnly = false,
         clientId = "",
+        creator,
         tpTriggerPrice,
         tpOrderType = OrderType.MARKET,
         tpOrderPrice = "",
@@ -249,6 +355,11 @@ export class DipCoinPerpSDK {
         slOrderType = OrderType.MARKET,
         slOrderPrice = "",
       } = params;
+
+      // Resolve creator: explicit creator (vault address), or main wallet address
+      const orderCreator = creator || this.walletAddress;
+      // Use sub-account keypair for signing if available, otherwise main keypair
+      const signingKeypair = this.subKeypair || this.keypair;
 
       // Validate market parameter - it must be a PerpetualID, not a symbol
       if (!market) {
@@ -269,7 +380,7 @@ export class DipCoinPerpSDK {
       // Note: market must be the PerpetualID (e.g., "0xc1b1cf3d774bcfcbd6d71158a4259f2d99fccbf64ffc34f32700f8a771587d99")
       const order = {
         market: market,
-        creator: this.walletAddress,
+        creator: orderCreator,
         isLong: side === OrderSide.BUY,
         reduceOnly,
         postOnly: false,
@@ -289,7 +400,7 @@ export class DipCoinPerpSDK {
         tpSalt = new BigNumber(Date.now() + 1);
         tpOrder = {
           market: order.market,
-          creator: this.walletAddress,
+          creator: orderCreator,
           isLong: !order.isLong,
           reduceOnly: true,
           postOnly: false,
@@ -313,7 +424,7 @@ export class DipCoinPerpSDK {
         slSalt = new BigNumber(Date.now() + 2);
         slOrder = {
           market: order.market,
-          creator: this.walletAddress,
+          creator: orderCreator,
           isLong: !order.isLong,
           reduceOnly: true,
           postOnly: false,
@@ -335,14 +446,14 @@ export class DipCoinPerpSDK {
       const orderHashBytes = new TextEncoder().encode(orderMsg);
 
       // Sign main order
-      const orderSignature = await signMessage(this.keypair, orderHashBytes);
+      const orderSignature = await signMessage(signingKeypair, orderHashBytes);
 
       // Sign TP order if exists
       let tpOrderSignature: string | undefined;
       if (tpOrder) {
         const tpOrderMsg = OrderSigner.getOrderMessageForUIWallet(tpOrder);
         const tpOrderHashBytes = new TextEncoder().encode(tpOrderMsg);
-        tpOrderSignature = await signMessage(this.keypair, tpOrderHashBytes);
+        tpOrderSignature = await signMessage(signingKeypair, tpOrderHashBytes);
       }
 
       // Sign SL order if exists
@@ -350,7 +461,7 @@ export class DipCoinPerpSDK {
       if (slOrder) {
         const slOrderMsg = OrderSigner.getOrderMessageForUIWallet(slOrder);
         const slOrderHashBytes = new TextEncoder().encode(slOrderMsg);
-        slOrderSignature = await signMessage(this.keypair, slOrderHashBytes);
+        slOrderSignature = await signMessage(signingKeypair, slOrderHashBytes);
       }
 
       // Build request parameters
@@ -361,12 +472,12 @@ export class DipCoinPerpSDK {
         side,
         orderType,
         quantity: formatNormalToWei(quantity),
-        price: formatNormalToWei(price || ""), // Match ts-frontend: always use priceWei
+        price: formatNormalToWei(price || ""),
         leverage: formatNormalToWei(leverage),
         salt: saltBN.toString(),
-        creator: this.walletAddress,
+        creator: orderCreator,
         clientId,
-        reduceOnly, // Will be sent as boolean in JSON
+        reduceOnly,
         orderSignature,
       };
 
@@ -406,13 +517,14 @@ export class DipCoinPerpSDK {
       // Handle JWT expiration
       if (response.code === 1000) {
         this.clearAuth();
-        const retryAuth = await this.authenticate();
+        const retryAuth = await this.authenticateForTrading();
         if (retryAuth.status) {
           // Retry the request
           const retryResponse = await this.httpClient.post<OrderResponse>(
             API_ENDPOINTS.PLACE_ORDER,
             requestParams
           );
+          this.restoreMainAuth();
           if (retryResponse.code === 200) {
             return {
               status: true,
@@ -420,12 +532,14 @@ export class DipCoinPerpSDK {
             };
           }
         }
+        this.restoreMainAuth();
         return {
           status: false,
           error: "Authentication expired and refresh failed",
         };
       }
 
+      this.restoreMainAuth();
       if (response.code === 200) {
         return {
           status: true,
@@ -439,6 +553,7 @@ export class DipCoinPerpSDK {
         };
       }
     } catch (error) {
+      this.restoreMainAuth();
       return {
         status: false,
         error: formatError(error),
@@ -453,9 +568,10 @@ export class DipCoinPerpSDK {
    */
   async cancelOrder(params: CancelOrderParams): Promise<SDKResponse<OrderResponse>> {
     try {
-      // Ensure authenticated before making request
-      const authResult = await this.authenticate();
+      // Use sub-account auth for trading if configured
+      const authResult = await this.authenticateForTrading();
       if (!authResult.status) {
+        this.restoreMainAuth();
         return {
           status: false,
           error: authResult.error || "Authentication failed",
@@ -468,12 +584,15 @@ export class DipCoinPerpSDK {
         throw new Error("Order hashes are required");
       }
 
+      // Use sub-account keypair for signing if available
+      const signingKeypair = this.subKeypair || this.keypair;
+
       // Build cancel order message
       const cancelOrderObj = { orderHashes };
       const orderHashBytes = new TextEncoder().encode(JSON.stringify(cancelOrderObj));
 
       // Sign the message
-      const signature = await signMessage(this.keypair, orderHashBytes);
+      const signature = await signMessage(signingKeypair, orderHashBytes);
 
       // Build request parameters
       // Match ts-frontend and Java: orderHashes should be an array, not a JSON string
@@ -496,13 +615,14 @@ export class DipCoinPerpSDK {
       // Handle JWT expiration
       if (response.code === 1000) {
         this.clearAuth();
-        const retryAuth = await this.authenticate();
+        const retryAuth = await this.authenticateForTrading();
         if (retryAuth.status) {
           // Retry the request
           const retryResponse = await this.httpClient.post<OrderResponse>(
             API_ENDPOINTS.CANCEL_ORDER,
             requestParams
           );
+          this.restoreMainAuth();
           if (retryResponse.code === 200) {
             return {
               status: true,
@@ -510,12 +630,14 @@ export class DipCoinPerpSDK {
             };
           }
         }
+        this.restoreMainAuth();
         return {
           status: false,
           error: "Authentication expired and refresh failed",
         };
       }
 
+      this.restoreMainAuth();
       if (response.code === 200) {
         return {
           status: true,
@@ -529,6 +651,7 @@ export class DipCoinPerpSDK {
         };
       }
     } catch (error) {
+      this.restoreMainAuth();
       return {
         status: false,
         error: formatError(error),
@@ -695,13 +818,17 @@ export class DipCoinPerpSDK {
     params: PlaceTpSlOrdersParams
   ): Promise<SDKResponse<PlaceTpSlOrdersResult>> {
     try {
-      const authResult = await this.authenticate();
+      const authResult = await this.authenticateForTrading();
       if (!authResult.status) {
+        this.restoreMainAuth();
         return {
           status: false,
           error: authResult.error || "Authentication failed",
         };
       }
+
+      // Use sub-account keypair for signing if available
+      const signingKeypair = this.subKeypair || this.keypair;
 
       const {
         symbol,
@@ -803,7 +930,7 @@ export class DipCoinPerpSDK {
 
         const tpOrderMsg = OrderSigner.getOrderMessageForUIWallet(tpOrder);
         const tpOrderSignature = await signMessage(
-          this.keypair,
+          signingKeypair,
           new TextEncoder().encode(tpOrderMsg)
         );
 
@@ -859,7 +986,7 @@ export class DipCoinPerpSDK {
 
         const slOrderMsg = OrderSigner.getOrderMessageForUIWallet(slOrder);
         const slOrderSignature = await signMessage(
-          this.keypair,
+          signingKeypair,
           new TextEncoder().encode(slOrderMsg)
         );
 
@@ -902,12 +1029,14 @@ export class DipCoinPerpSDK {
       );
 
       if (success) {
+        this.restoreMainAuth();
         return {
           status: true,
           data: results,
         };
       }
 
+      this.restoreMainAuth();
       return {
         status: false,
         data: results,
@@ -917,6 +1046,7 @@ export class DipCoinPerpSDK {
           "Failed to place TP/SL order",
       };
     } catch (error) {
+      this.restoreMainAuth();
       return {
         status: false,
         error: formatError(error),
@@ -1004,7 +1134,7 @@ export class DipCoinPerpSDK {
    * Get account information
    * @returns Account info response
    */
-  async getAccountInfo(): Promise<SDKResponse<AccountInfo>> {
+  async getAccountInfo(params?: AccountInfoParams): Promise<SDKResponse<AccountInfo>> {
     try {
       // Ensure authenticated before making request
       const authResult = await this.authenticate();
@@ -1015,8 +1145,14 @@ export class DipCoinPerpSDK {
         };
       }
 
+      const queryParams: Record<string, any> = {};
+      if (params?.parentAddress) {
+        queryParams.parentAddress = params.parentAddress;
+      }
+
       const response = await this.httpClient.get<AccountInfoResponse>(
-        API_ENDPOINTS.GET_ACCOUNT_INFO
+        API_ENDPOINTS.GET_ACCOUNT_INFO,
+        { params: queryParams }
       );
 
       // Handle JWT expiration (code 1000)
@@ -1027,7 +1163,8 @@ export class DipCoinPerpSDK {
         if (retryAuth.status) {
           // Retry the request
           const retryResponse = await this.httpClient.get<AccountInfoResponse>(
-            API_ENDPOINTS.GET_ACCOUNT_INFO
+            API_ENDPOINTS.GET_ACCOUNT_INFO,
+            { params: queryParams }
           );
           if (retryResponse.code === 200 && retryResponse.data) {
             return {
@@ -1078,7 +1215,7 @@ export class DipCoinPerpSDK {
    * @param symbol Optional symbol filter
    * @returns Positions response
    */
-  async getPositions(symbol?: string): Promise<SDKResponse<Position[]>> {
+  async getPositions(paramsOrSymbol?: string | PositionsParams): Promise<SDKResponse<Position[]>> {
     try {
       // Ensure authenticated before making request
       const authResult = await this.authenticate();
@@ -1090,8 +1227,11 @@ export class DipCoinPerpSDK {
       }
 
       const params: Record<string, any> = {};
-      if (symbol) {
-        params.symbol = symbol;
+      if (typeof paramsOrSymbol === "string") {
+        params.symbol = paramsOrSymbol;
+      } else if (paramsOrSymbol) {
+        if (paramsOrSymbol.symbol) params.symbol = paramsOrSymbol.symbol;
+        if (paramsOrSymbol.parentAddress) params.parentAddress = paramsOrSymbol.parentAddress;
       }
 
       const response = await this.httpClient.get<PositionsResponse>(API_ENDPOINTS.GET_POSITIONS, {
@@ -1231,7 +1371,7 @@ export class DipCoinPerpSDK {
    * @param symbol Optional symbol filter
    * @returns Open orders response
    */
-  async getOpenOrders(symbol?: string): Promise<SDKResponse<OpenOrder[]>> {
+  async getOpenOrders(paramsOrSymbol?: string | OpenOrdersParams): Promise<SDKResponse<OpenOrder[]>> {
     try {
       // Ensure authenticated before making request
       const authResult = await this.authenticate();
@@ -1243,8 +1383,13 @@ export class DipCoinPerpSDK {
       }
 
       const params: Record<string, any> = {};
-      if (symbol) {
-        params.symbol = symbol;
+      if (typeof paramsOrSymbol === "string") {
+        params.symbol = paramsOrSymbol;
+      } else if (paramsOrSymbol) {
+        if (paramsOrSymbol.symbol) params.symbol = paramsOrSymbol.symbol;
+        if (paramsOrSymbol.page) params.page = paramsOrSymbol.page;
+        if (paramsOrSymbol.pageSize) params.pageSize = paramsOrSymbol.pageSize;
+        if (paramsOrSymbol.parentAddress) params.parentAddress = paramsOrSymbol.parentAddress;
       }
 
       const response = await this.httpClient.get<OpenOrdersResponse>(
@@ -1705,6 +1850,164 @@ export class DipCoinPerpSDK {
     }
 
     return ticker;
+  }
+
+  /**
+   * Get history orders (matches Java historyOrders)
+   * @param params History orders query parameters
+   */
+  async getHistoryOrders(params?: HistoryOrdersParams): Promise<SDKResponse<PageResponse<HistoryOrder>>> {
+    try {
+      const authResult = await this.authenticate();
+      if (!authResult.status) {
+        return { status: false, error: authResult.error || "Authentication failed" };
+      }
+
+      const queryParams: Record<string, any> = {};
+      if (params?.symbol) queryParams.symbol = params.symbol;
+      if (params?.page) queryParams.page = params.page;
+      if (params?.pageSize) queryParams.pageSize = params.pageSize;
+      if (params?.parentAddress) queryParams.parentAddress = params.parentAddress;
+
+      let response = await this.httpClient.get<PageResponse<HistoryOrder>>(
+        API_ENDPOINTS.HISTORY_ORDERS,
+        { params: queryParams }
+      );
+
+      if (response.code === 1000) {
+        this.clearAuth();
+        const retryAuth = await this.authenticate();
+        if (retryAuth.status) {
+          response = await this.httpClient.get<PageResponse<HistoryOrder>>(
+            API_ENDPOINTS.HISTORY_ORDERS,
+            { params: queryParams }
+          );
+        } else {
+          return { status: false, error: "Authentication expired and refresh failed" };
+        }
+      }
+
+      if (response.code === 200 && response.data) {
+        return { status: true, data: response.data };
+      }
+      return { status: false, error: response.message || "Failed to get history orders" };
+    } catch (error) {
+      return { status: false, error: formatError(error) };
+    }
+  }
+
+  /**
+   * Get funding settlements history (matches Java fundingSettlements)
+   * @param params Funding settlements query parameters
+   */
+  async getFundingSettlements(params?: FundingSettlementsParams): Promise<SDKResponse<PageResponse<FundingSettlement>>> {
+    try {
+      const authResult = await this.authenticate();
+      if (!authResult.status) {
+        return { status: false, error: authResult.error || "Authentication failed" };
+      }
+
+      const queryParams: Record<string, any> = {};
+      if (params?.symbol) queryParams.symbol = params.symbol;
+      if (params?.page) queryParams.page = params.page;
+      if (params?.pageSize) queryParams.pageSize = params.pageSize;
+      if (params?.parentAddress) queryParams.parentAddress = params.parentAddress;
+
+      let response = await this.httpClient.get<PageResponse<FundingSettlement>>(
+        API_ENDPOINTS.FUNDING_SETTLEMENTS,
+        { params: queryParams }
+      );
+
+      if (response.code === 1000) {
+        this.clearAuth();
+        const retryAuth = await this.authenticate();
+        if (retryAuth.status) {
+          response = await this.httpClient.get<PageResponse<FundingSettlement>>(
+            API_ENDPOINTS.FUNDING_SETTLEMENTS,
+            { params: queryParams }
+          );
+        } else {
+          return { status: false, error: "Authentication expired and refresh failed" };
+        }
+      }
+
+      if (response.code === 200 && response.data) {
+        return { status: true, data: response.data };
+      }
+      return { status: false, error: response.message || "Failed to get funding settlements" };
+    } catch (error) {
+      return { status: false, error: formatError(error) };
+    }
+  }
+
+  /**
+   * Get balance changes history (matches Java balanceChanges)
+   * @param params Balance changes query parameters
+   */
+  async getBalanceChanges(params?: BalanceChangesParams): Promise<SDKResponse<PageResponse<BalanceChange>>> {
+    try {
+      const authResult = await this.authenticate();
+      if (!authResult.status) {
+        return { status: false, error: authResult.error || "Authentication failed" };
+      }
+
+      const queryParams: Record<string, any> = {};
+      if (params?.page) queryParams.page = params.page;
+      if (params?.pageSize) queryParams.pageSize = params.pageSize;
+      if (params?.parentAddress) queryParams.parentAddress = params.parentAddress;
+
+      let response = await this.httpClient.get<PageResponse<BalanceChange>>(
+        API_ENDPOINTS.BALANCE_CHANGES,
+        { params: queryParams }
+      );
+
+      if (response.code === 1000) {
+        this.clearAuth();
+        const retryAuth = await this.authenticate();
+        if (retryAuth.status) {
+          response = await this.httpClient.get<PageResponse<BalanceChange>>(
+            API_ENDPOINTS.BALANCE_CHANGES,
+            { params: queryParams }
+          );
+        } else {
+          return { status: false, error: "Authentication expired and refresh failed" };
+        }
+      }
+
+      if (response.code === 200 && response.data) {
+        return { status: true, data: response.data };
+      }
+      return { status: false, error: response.message || "Failed to get balance changes" };
+    } catch (error) {
+      return { status: false, error: formatError(error) };
+    }
+  }
+
+  /**
+   * Get oracle price for a trading pair (matches Java oracle)
+   * @param symbol Trading symbol (e.g., "BTC-PERP")
+   * @returns Oracle price as string (in wei/base unit)
+   */
+  async getOraclePrice(symbol: string): Promise<SDKResponse<string>> {
+    try {
+      if (!symbol) {
+        return { status: false, error: "Symbol is required" };
+      }
+
+      await this.authenticate().catch(() => {});
+
+      const response = await this.httpClient.get<any>(
+        API_ENDPOINTS.ORACLE,
+        { params: { symbol } }
+      );
+
+      if (response.code === 200 && response.data !== undefined) {
+        return { status: true, data: String(response.data) };
+      }
+      return { status: false, error: response.message || "Failed to get oracle price" };
+    } catch (error) {
+      return { status: false, error: formatError(error) };
+    }
   }
 
   /**
