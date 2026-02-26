@@ -44,8 +44,15 @@ export function registerAccountCommands(program: Command) {
       try {
         const sdk = getSDK();
         const tx = await sdk.depositToBank(Number(amount));
-        if (isJson(program)) return printJson({ digest: tx?.digest, status: "ok" });
-        console.log(`Deposit ${amount} USDC submitted. Tx: ${tx?.digest || JSON.stringify(tx)}`);
+        const status = tx?.effects?.status?.status;
+        const error = tx?.effects?.status?.error;
+        if (isJson(program)) return printJson({ digest: tx?.digest, status, error });
+        if (status === "failure") {
+          console.error(`Deposit ${amount} USDC failed. Tx: ${tx?.digest}`);
+          console.error(`Error: ${error}`);
+          process.exit(1);
+        }
+        console.log(`Deposit ${amount} USDC succeeded. Tx: ${tx?.digest}`);
       } catch (e) {
         handleError(e);
       }
@@ -59,8 +66,15 @@ export function registerAccountCommands(program: Command) {
       try {
         const sdk = getSDK();
         const tx = await sdk.withdrawFromBank(Number(amount));
-        if (isJson(program)) return printJson({ digest: tx?.digest, status: "ok" });
-        console.log(`Withdraw ${amount} USDC submitted. Tx: ${tx?.digest || JSON.stringify(tx)}`);
+        const status = tx?.effects?.status?.status;
+        const error = tx?.effects?.status?.error;
+        if (isJson(program)) return printJson({ digest: tx?.digest, status, error });
+        if (status === "failure") {
+          console.error(`Withdraw ${amount} USDC failed. Tx: ${tx?.digest}`);
+          console.error(`Error: ${error}`);
+          process.exit(1);
+        }
+        console.log(`Withdraw ${amount} USDC succeeded. Tx: ${tx?.digest}`);
       } catch (e) {
         handleError(e);
       }

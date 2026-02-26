@@ -1,102 +1,92 @@
 {
   "deployer": "0x74a096bbe8126ab58db4d82cf7efbbef3b85e58560c12e00e9efef9a153882fc",
   "packages": [
-    "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d",
-    "0x3caaf5aadb996e9a15cc666430596911ec48a6e5f40b788e788bba8fc54b5cbd",
-    "0x192c1c8f5f3f21ef9caf2caa1c0031199d2386e43d5b9fc81c35666c527d851c",
-    "0xc00da38cb509577fc66e0958403d56090d63d43ccd94cc0dbe836e4a7c97b32c",
-    "0x88e5b7d9dac3ed2378084bc0cfdd52c3c9cd01257cfd3a78ede5cf2b62614468",
-    "0xd32908d1e1fce7839e7721f27a0d54ec927073ac7615131a17f943866547ecd7",
-    "0x783bb24b21fab259ae741975eb0190c657cd3ad90331aa7abb8f580413d0a038",
-    "0x46e348d7918176ba1baec621f5c1595cd452b9dc8c62e83b88046177fe909385",
-    "0xc8e81120138a3ae32573f97e39bcbea7d5983a0d124f9afce63cefd5cccc5396",
-    "0x869e84cf6af84bb4c90a9fcafe72d633c638f645cf7654243e930f4c73826ab1",
-    "0x4e6afceaee56aee28acbfd324e526182dbdb8ae79520781b0ee0a5ff3fe1fce3",
-    "0x0114b1d4656ac42a9523da1c7241f0291918f9517fd30f3e6e84b9fd5b3e3730"
+    "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87",
+    "0xc2dd582487d685492ab7115708168b8278233442f830a5977e2cfcd6647f8fb6"
   ],
   "objects": {
     "OrderStatus": {
-      "id": "0x0334c20b5c9646dba8703fbf3e5eff869b764e5d44e6d7b628f1dce5d20c0c8a",
+      "id": "0x8649c6cc316148fb3eeab79edac6234d81d9d2217f8454616848a2e95c61fb57",
       "owner": "Shared",
-      "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::order::OrderStatus",
+      "dataType": "0x2::table::Table<vector<u8>, 0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::order::OrderStatus>",
       "package_version": 1
     },
     "ProtocolConfig": {
-      "id": "0x05a630c36e8a6cb9ff99e2d2595e55ec70d002a8069a90c2d1bac0bfa12271fa",
+      "id": "0x941880b7423cee8250d62d33a4bd15ab56a90c73a33e217b63753f66e8e720b0",
       "owner": "Shared",
-      "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::protocol::ProtocolConfig",
+      "dataType": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::protocol::ProtocolConfig",
       "package_version": 1
     },
     "UpgradeCap": {
-      "id": "0x18ca426fb21c735039d73488448415c18b913245570b16ba9821363887a20a2c",
+      "id": "0x5ec711169dcef7523862c5eda8a22de9939da0366d86ff86920d161e1a542a8d",
       "owner": "Owned",
       "dataType": "0x2::package::UpgradeCap",
       "package_version": 1
     },
     "FundingRateCap": {
-      "id": "0x258273e2ba169cd4644962508f690d15ebb1a8417d4535d5e72afe65a51b6866",
+      "id": "0x7bd8ea5e18fe458cb23535e754925847313a1fdc40ee6cfbb8a91238cb556aa8",
       "owner": "Owned",
-      "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::roles::FundingRateCap",
+      "dataType": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::roles::FundingRateCap",
       "package_version": 1
     },
     "ExchangeManagerCap": {
-      "id": "0x2a63002f9f00579c191a3d074e387d3ad22ada4f81a103e452c8959d9099a439",
+      "id": "0x3b9a2493cfd474cfe276a6b4076d8aff0b6a23ba8d7379e2076121407bc49494",
       "owner": "Owned",
-      "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::roles::ExchangeManagerCap",
+      "dataType": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::roles::ExchangeManagerCap",
       "package_version": 1
     },
     "SubAccounts": {
-      "id": "0x62a28e07b1e3ddb2cb1108349761ec1cf096b0c3523863af3bfd4e36e14beb5b",
+      "id": "0x5c006031299c4edaed3bd65b0932beeb6142cdb4db755cde7b181d7d9bf86ce4",
       "owner": "Shared",
-      "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::sub_accounts::SubAccounts",
+      "dataType": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::sub_accounts::SubAccounts",
       "package_version": 1
     },
     "UnlimitedMintCap": {
-      "id": "0x9211251685bf63a333aaa6d1df3100ab94493e116ba38295b22a7f8253c27024",
+      "id": "0x75225f1bb55a3eaddf26681382c8971f84b8a99db0ac795a857e4da243efc181",
       "owner": "Owned",
-      "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::coin::UnlimitedMintCap",
+      "dataType": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::coin::UnlimitedMintCap",
       "package_version": 1
     },
     "TxIndexer": {
-      "id": "0xaed1352c3f6f2a44fd521350f53a98f675d4b07cc36916607eae24c2650a9cb9",
+      "id": "0x28b619a8e585287a299948b323898cca85c2dc0ee3945475d84cad9afcddc53f",
       "owner": "Shared",
-      "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::sub_accounts::TxIndexer",
+      "dataType": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::sub_accounts::TxIndexer",
       "package_version": 1
     },
     "DeleveragingCap": {
-      "id": "0xc39710a628ec52c79b9e6c749469c3ae2112ee6b123462424410f84b6858cf25",
+      "id": "0x64977d81aabd79db2a1fe188f82004a38ea54404a74fc3b44b9c60d84830bac2",
       "owner": "Owned",
-      "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::roles::DeleveragingCap",
+      "dataType": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::roles::DeleveragingCap",
       "package_version": 1
     },
     "ExchangeAdminCap": {
-      "id": "0xd0bd238e322cbf0ee0c97ee1d6a0d9f62af0d0696f8c0b20e86bd3219df17450",
+      "id": "0xe1bc241a23da977865d470d2bfefd3bd352eae786c582e93ffa890af16b0d1c8",
       "owner": "Owned",
-      "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::roles::ExchangeAdminCap",
+      "dataType": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::roles::ExchangeAdminCap",
       "package_version": 1
     },
     "Currency": {
-      "id": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d",
+      "id": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87",
       "owner": "Immutable",
-      "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::coin::COIN",
+      "dataType": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::coin::COIN",
       "package_version": 1
     },
     "MintManager": {
-      "id": "0xfd7031017dc1b9e03c53d20595b35f2e20f813f59d8edc0e7b0ed09f24b87a72",
+      "id": "0x559b37acdb56835126c20e07f4d98c0f728598c7109f280541849488dcce4aca",
       "owner": "Shared",
-      "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::coin::MintManager",
+      "dataType": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::coin::MintManager",
       "package_version": 1
     },
     "Bank": {
-      "id": "0x16be93006a3ced6fa2dde428c9b8418b4986efd4abc6980d7f4367bbfd638353",
+      "id": "0xfc48d358fa92940fc62c3bbf86ce36ed5c7d11f8322c1acb7e0b3d12a915478a",
       "owner": "Shared",
-      "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::bank::Bank<0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::coin::COIN>",
+      "dataType": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::bank::Bank<0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::coin::COIN>",
       "package_version": 1
     },
     "BankTable": {
       "owner": "Shared",
-      "id": "0x236762ea78c43dabff54175fee324c8919fd06cca5bbc8e7fc3fb9a9f0f10c1c",
-      "dataType": "0x2::table::Table<address, 0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::bank::BankAccount>",
+      "id": "0x132d64ac8355786ceb5a008349689f268df788106e2f4887945d7d7a7c0f5b09",
+      "dataType": "0x2::table::Table<address, 0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::bank::BankAccount>",
       "package_version": 1
     }
   },
@@ -155,19 +145,19 @@
         "BankAccount": {
           "id": "0xc10f6f126b86c96e78c51c99dc6a501aa2a942d7db39ff10a9d57912b58b1a48",
           "owner": "Owned",
-          "dataType": "0x2::dynamic_field::Field<address, 0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::bank::BankAccount>",
+          "dataType": "0x2::dynamic_field::Field<address, 0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::bank::BankAccount>",
           "package_version": 1
         },
         "Perpetual": {
           "id": "0x44e07a44992498d610f455310b839d9f29aca7657bce65aa8d614b240900a5c7",
           "owner": "Shared",
-          "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::perpetual::Perpetual",
+          "dataType": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::perpetual::Perpetual",
           "package_version": 1
         },
         "PositionsTable": {
           "owner": "Shared",
           "id": "0xe6764eff20b9d36c11669a59bc669e1c13d380c7bf12ee1fe75c2241ec9e8719",
-          "dataType": "0x2::table::Table<address, 0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::position::Position>",
+          "dataType": "0x2::table::Table<address, 0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::position::Position>",
           "package_version": 1
         },
         "PriceInfoObject": {
@@ -232,19 +222,19 @@
         "Perpetual": {
           "id": "0x01956b7a475b232cda4c44643ef73475d3696f2bcba7fab65716c953aca80b62",
           "owner": "Shared",
-          "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::perpetual::Perpetual",
+          "dataType": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::perpetual::Perpetual",
           "package_version": 1
         },
         "BankAccount": {
           "id": "0x46fe62cd344c15b1df042e7ee93095b1461946c295f4c43fb5911b7e18e353af",
           "owner": "Owned",
-          "dataType": "0x2::dynamic_field::Field<address, 0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::bank::BankAccount>",
+          "dataType": "0x2::dynamic_field::Field<address, 0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::bank::BankAccount>",
           "package_version": 1
         },
         "PositionsTable": {
           "owner": "Shared",
           "id": "0xfb67a57e1ff22ebdbd6f8b0833dd4cda0d34bb2bd3b9cd254fcb68a17428e541",
-          "dataType": "0x2::table::Table<address, 0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::position::Position>",
+          "dataType": "0x2::table::Table<address, 0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::position::Position>",
           "package_version": 1
         },
         "PriceInfoObject": {
@@ -309,19 +299,19 @@
         "Perpetual": {
           "id": "0x1b072fc44f685b5a84059597f80235d9876fcb0b8e6a7f7c83654641e21d4388",
           "owner": "Shared",
-          "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::perpetual::Perpetual",
+          "dataType": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::perpetual::Perpetual",
           "package_version": 1
         },
         "BankAccount": {
           "id": "0x4e93beed927cd35e333ff98124583d475271f67f076cb20d6722fd3866c9d737",
           "owner": "Owned",
-          "dataType": "0x2::dynamic_field::Field<address, 0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::bank::BankAccount>",
+          "dataType": "0x2::dynamic_field::Field<address, 0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::bank::BankAccount>",
           "package_version": 1
         },
         "PositionsTable": {
           "owner": "Shared",
           "id": "0xdbf4902bb3e9a476f437c70c6637a5e3155bd94963a79513fd5f31e9a2d67d8a",
-          "dataType": "0x2::table::Table<address, 0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::position::Position>",
+          "dataType": "0x2::table::Table<address, 0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::position::Position>",
           "package_version": 1
         },
         "PriceInfoObject": {
@@ -377,19 +367,19 @@
         "BankAccount": {
           "id": "0x4d941ef9f2ba286cd0415300c11334067b37739add5169c7078b160f2d4e7f24",
           "owner": "Owned",
-          "dataType": "0x2::dynamic_field::Field<address, 0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::bank::BankAccount>",
+          "dataType": "0x2::dynamic_field::Field<address, 0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::bank::BankAccount>",
           "package_version": 1
         },
         "Perpetual": {
           "id": "0xe9d5116eb9592cc540d3d4bdb535c4b9072fc965bfacb44ceb4b1ccde0ebdb28",
           "owner": "Shared",
-          "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::perpetual::Perpetual",
+          "dataType": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::perpetual::Perpetual",
           "package_version": 1
         },
         "PositionsTable": {
           "owner": "Shared",
           "id": "0xc83b215c02d34eabf7fff661eaf594371606b4f0340f7294d046a05044999892",
-          "dataType": "0x2::table::Table<address, 0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::position::Position>",
+          "dataType": "0x2::table::Table<address, 0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::position::Position>",
           "package_version": 1
         },
         "PriceInfoObject": {
@@ -455,19 +445,19 @@
         "Perpetual": {
           "id": "0x371e2aebed966a6fca20af6d2ed1a1ab3c0d0ff585a72efa1d2db7d841e31e1d",
           "owner": "Shared",
-          "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::perpetual::Perpetual",
+          "dataType": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::perpetual::Perpetual",
           "package_version": 1
         },
         "BankAccount": {
           "id": "0xae705ed64326363dbaa4ed9f202b13fb5842a1bdf1eb2e5840ca1a79f5f7913b",
           "owner": "Owned",
-          "dataType": "0x2::dynamic_field::Field<address, 0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::bank::BankAccount>",
+          "dataType": "0x2::dynamic_field::Field<address, 0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::bank::BankAccount>",
           "package_version": 1
         },
         "PositionsTable": {
           "owner": "Shared",
           "id": "0x20960fb23f79a1c773231d6c999a073491e62c168fb7f9bead74892d40525bcd",
-          "dataType": "0x2::table::Table<address, 0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::position::Position>",
+          "dataType": "0x2::table::Table<address, 0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::position::Position>",
           "package_version": 1
         },
         "PriceInfoObject": {
@@ -533,19 +523,19 @@
         "Perpetual": {
           "id": "0x5dc29e3fb3e00256c2576f4fa196b626383cbaa7f3a3a83f0cabda649b42a111",
           "owner": "Shared",
-          "dataType": "0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::perpetual::Perpetual",
+          "dataType": "0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::perpetual::Perpetual",
           "package_version": 1
         },
         "BankAccount": {
           "id": "0xda89f3a3ee5ec51747a80ae7c9f6757649dbabf59b386619102309c31a8dad39",
           "owner": "Owned",
-          "dataType": "0x2::dynamic_field::Field<address, 0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::bank::BankAccount>",
+          "dataType": "0x2::dynamic_field::Field<address, 0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::bank::BankAccount>",
           "package_version": 1
         },
         "PositionsTable": {
           "owner": "Shared",
           "id": "0x2cfe719ee747df4060f3fa45797f5a7a3eaee269227a76451e429d3a2e41e19a",
-          "dataType": "0x2::table::Table<address, 0x1f2788918b609959c9052a1f00c49765752acb24d99997a102903be7da18dd0d::position::Position>",
+          "dataType": "0x2::table::Table<address, 0x0de11caea463b7ec51adb976774d6bc16ba3054dd95675c8bd06ec74fb7b1c87::position::Position>",
           "package_version": 1
         },
         "PriceInfoObject": {
