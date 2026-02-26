@@ -24,6 +24,7 @@
     "clean": "rm -rf dist build package",
     "ts-node": "ts-node",
     "example": "tsx examples/index.ts",
+    "cli": "tsx cli/index.ts",
     "docs": "typedoc --entryPoints src/index.ts",
     "build-ts": "tsc -p tsconfig.json",
     "build": "rm -rf dist; rollup -c rollup.config.js; mkdir -p dist/config/deployed/mainnet dist/config/deployed/testnet; cp -r src/config/deployed/* dist/config/deployed/"
@@ -48,6 +49,8 @@
     "axios": "^1.6.0",
     "bignumber.js": "^9.2.0",
     "buffer": "^6.0.3",
+    "cli-table3": "^0.6.5",
+    "commander": "^14.0.3",
     "fs": "^0.0.1-security",
     "path": "^0.12.7"
   },
