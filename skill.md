@@ -9,7 +9,7 @@ This skill provides access to the DipCoin perpetual contract trading platform on
 Run the following commands to clone and set up the CLI tool:
 
 ```bash
-git clone https://github.com/dipcoinlab/dipcoin-perp-client-ts.git ~/dipcoin-perp-cli
+git clone https://github.com/stardipcoin/dipcoin-perp-client-ts.git ~/dipcoin-perp-cli
 cd ~/dipcoin-perp-cli
 npm install
 ```
