@@ -37,28 +37,26 @@ The CLI reads configuration from a `.env` file in the project root (`~/dipcoin-p
 
 ### Setup Steps
 
-1. Ask the user for their `PRIVATE_KEY` and which `NETWORK` they want to use (`mainnet` or `testnet`).
-2. Optionally ask for `SUB_ACCOUNT_KEY` and `VAULT_ADDRESS` if needed.
-3. Create the `.env` file:
+**IMPORTANT: Never ask the user for their private key. Never accept, log, or handle private keys in the conversation. The user must configure the `.env` file themselves.**
+
+1. Tell the user to copy the sample config and edit it manually:
 
 ```bash
-cat > ~/dipcoin-perp-cli/.env << 'EOF'
-PRIVATE_KEY=<user_provided_private_key>
-NETWORK=<user_provided_network>
-SUB_ACCOUNT_KEY=<optional>
-VAULT_ADDRESS=<optional>
-EOF
+cp ~/dipcoin-perp-cli/.env.sample ~/dipcoin-perp-cli/.env
 ```
 
-### Verify Configuration
+2. Instruct the user to open `~/dipcoin-perp-cli/.env` in their text editor and fill in:
+   - `PRIVATE_KEY` - their Sui wallet private key (starts with `suiprivkey...`)
+   - `NETWORK` - set to `mainnet` or `testnet`
+   - (Optional) `SUB_ACCOUNT_KEY` and `VAULT_ADDRESS` if needed
 
-After setting up `.env`, verify authentication works:
+3. After the user confirms they have configured the `.env` file, verify it works:
 
 ```bash
 cd ~/dipcoin-perp-cli && npx tsx cli/index.ts account info --json
 ```
 
-If successful, you will see the account's wallet balance, account value, and margin info in JSON. If it fails with an auth error, the `PRIVATE_KEY` is incorrect.
+If successful, you will see the account's wallet balance, account value, and margin info in JSON. If it fails with an auth error, ask the user to double-check their `.env` configuration.
 
 ## Usage
 
