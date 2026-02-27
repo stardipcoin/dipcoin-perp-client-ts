@@ -6,6 +6,7 @@ import { registerPositionCommands } from "./commands/position";
 import { registerMarketCommands } from "./commands/market";
 import { registerHistoryCommands } from "./commands/history";
 import { registerVaultCommands, registerOrdersCommand } from "./commands/vault";
+import { registerBalanceCommand } from "./commands/balance";
 
 const program = new Command();
 
@@ -22,6 +23,7 @@ registerMarketCommands(program);
 registerHistoryCommands(program);
 registerVaultCommands(program);
 registerOrdersCommand(program);
+registerBalanceCommand(program);
 
 program.parseAsync(process.argv).catch((err) => {
   console.error("Error:", err.message || err);

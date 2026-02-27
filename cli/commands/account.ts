@@ -13,8 +13,8 @@ export function registerAccountCommands(program: Command) {
       try {
         const sdk = getSDK();
         await ensureAuth(sdk);
-        const vault = getVaultAddress(opts.vault);
-        const result = await sdk.getAccountInfo(vault ? { parentAddress: vault } : undefined);
+        const parentAddress = opts.vault || sdk.address;
+        const result = await sdk.getAccountInfo({ parentAddress });
         if (!result.status || !result.data) return handleError(result.error);
 
         if (isJson(program)) return printJson(result.data);

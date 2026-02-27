@@ -17,9 +17,9 @@ export function printTable(headers: string[], rows: string[][]): void {
 
 export function formatWei(value: string | number | null | undefined): string {
   if (value === undefined || value === null || value === "") return "0.00";
-  const str = String(value);
-  const num = Number(str) / 1e18;
-  return num.toFixed(2);
+  const num = Number(value) / 1e18;
+  if (isNaN(num)) return "0.00";
+  return num.toFixed(Math.abs(num) < 1 ? 6 : 2);
 }
 
 export function handleError(error: any): void {

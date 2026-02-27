@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { getSDK, getVaultAddress, ensureAuth } from "../utils/sdk-factory";
-import { isJson, printJson, printTable, handleError } from "../utils/output";
+import { isJson, printJson, printTable, handleError, formatWei } from "../utils/output";
 
 export function registerVaultCommands(program: Command) {
   const vault = program.command("vault").description("Vault / sub-account operations");
@@ -12,7 +12,7 @@ export function registerVaultCommands(program: Command) {
     .action(async (subAddress) => {
       try {
         const sdk = getSDK();
-        const tx = await (sdk as any).setSubAccount(subAddress);
+        const tx = await sdk.setSubAccount(subAddress);
         if (isJson(program)) return printJson({ digest: tx?.digest, status: "ok" });
         console.log(`Sub-account ${subAddress} set. Tx: ${tx?.digest || JSON.stringify(tx)}`);
       } catch (e) {
@@ -41,11 +41,11 @@ export function registerVaultCommands(program: Command) {
           ["Field", "Value"],
           [
             ["Vault Address", vaultAddr],
-            ["Wallet Balance", d.walletBalance],
-            ["Account Value", d.accountValue],
-            ["Free Collateral", d.freeCollateral],
-            ["Total Margin", d.totalMargin],
-            ["Unrealized PnL", d.totalUnrealizedProfit],
+            ["Wallet Balance", formatWei(d.walletBalance)],
+            ["Account Value", formatWei(d.accountValue)],
+            ["Free Collateral", formatWei(d.freeCollateral)],
+            ["Total Margin", formatWei(d.totalMargin)],
+            ["Unrealized PnL", formatWei(d.totalUnrealizedProfit)],
           ]
         );
       } catch (e) {
@@ -64,10 +64,11 @@ export function registerOrdersCommand(program: Command) {
       try {
         const sdk = getSDK();
         await ensureAuth(sdk);
-        const vault = getVaultAddress(opts.vault);
-        const params = opts.symbol || vault
-          ? { ...(opts.symbol ? { symbol: opts.symbol } : {}), ...(vault ? { parentAddress: vault } : {}) }
-          : undefined;
+        const vault = opts.vault || sdk.address;
+        const params: any = {
+          parentAddress: vault,
+          ...(opts.symbol ? { symbol: opts.symbol } : {}),
+        };
         const result = await sdk.getOpenOrders(params as any);
         if (!result.status) return handleError(result.error);
 
@@ -82,9 +83,9 @@ export function registerOrdersCommand(program: Command) {
             o.symbol,
             o.side,
             o.orderType,
-            o.quantity,
-            o.price,
-            o.leverage + "x",
+            formatWei(o.quantity),
+            formatWei(o.price),
+            formatWei(o.leverage) + "x",
             o.status,
           ])
         );

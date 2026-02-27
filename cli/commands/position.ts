@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { getSDK, getVaultAddress, ensureAuth } from "../utils/sdk-factory";
-import { isJson, printJson, printTable, handleError } from "../utils/output";
+import { isJson, printJson, printTable, handleError, formatWei } from "../utils/output";
 import { OrderSide, OrderType } from "../../src";
 
 export function registerPositionCommands(program: Command) {
@@ -15,10 +15,11 @@ export function registerPositionCommands(program: Command) {
       try {
         const sdk = getSDK();
         await ensureAuth(sdk);
-        const vault = getVaultAddress(opts.vault);
-        const params = opts.symbol || vault
-          ? { ...(opts.symbol ? { symbol: opts.symbol } : {}), ...(vault ? { parentAddress: vault } : {}) }
-          : undefined;
+        const vault = opts.vault || sdk.address;
+        const params: any = {
+          parentAddress: vault,
+          ...(opts.symbol ? { symbol: opts.symbol } : {}),
+        };
         const result = await sdk.getPositions(params as any);
         if (!result.status) return handleError(result.error);
 
@@ -31,12 +32,12 @@ export function registerPositionCommands(program: Command) {
           result.data.map((p) => [
             p.symbol,
             p.side,
-            p.quantity,
-            p.avgEntryPrice,
-            p.leverage + "x",
-            p.liquidationPrice,
-            p.unrealizedProfit,
-            p.margin,
+            formatWei(p.quantity),
+            formatWei(p.avgEntryPrice),
+            formatWei(p.leverage) + "x",
+            formatWei(p.liquidationPrice),
+            formatWei(p.unrealizedProfit),
+            formatWei(p.margin),
           ])
         );
       } catch (e) {

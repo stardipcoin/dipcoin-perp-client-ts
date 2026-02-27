@@ -3,14 +3,46 @@ import { getSDK, getVaultAddress, ensureAuth } from "../utils/sdk-factory";
 import { isJson, printJson, handleError } from "../utils/output";
 import { OrderSide, OrderType } from "../../src";
 
-async function placeOrder(program: Command, side: OrderSide, symbol: string, quantity: string, opts: any) {
+async function placeOrder(program: Command, side: OrderSide, symbol: string, quantity: string | undefined, opts: any) {
   try {
     const sdk = getSDK();
     await ensureAuth(sdk);
 
     const leverage = opts.leverage || "10";
     const orderType = opts.type?.toUpperCase() === "LIMIT" ? OrderType.LIMIT : OrderType.MARKET;
-    const vault = getVaultAddress(opts.vault);
+    const vault = opts.vault || undefined;
+
+    if (quantity && opts.usdc) return handleError("Cannot specify both <quantity> and --usdc");
+    if (!quantity && !opts.usdc) return handleError("Must specify either <quantity> or --usdc <amount>");
+
+    if (opts.usdc) {
+      const tickerResult = await sdk.getTicker(symbol);
+      if (!tickerResult.status || !tickerResult.data) return handleError("Failed to get market price for USDC conversion");
+      const priceWei = parseFloat(tickerResult.data.lastPrice);
+      if (!priceWei || priceWei <= 0) return handleError("Invalid market price");
+      const price = priceWei / 1e18;
+      const lev = parseFloat(leverage);
+      const usdcAmount = parseFloat(opts.usdc);
+      const rawQty = usdcAmount * lev / price;
+
+      let stepSize = 0.01;
+      const pairResult = await sdk.getTradingPairs();
+      if (pairResult.status && pairResult.data) {
+        const pair = pairResult.data.find((p: any) => p.symbol === symbol);
+        if (pair?.stepSize) {
+          const parsed = parseFloat(pair.stepSize);
+          if (parsed > 0) stepSize = parsed > 1e10 ? parsed / 1e18 : parsed;
+        } else if (pair?.minTradeQty) {
+          const parsed = parseFloat(pair.minTradeQty);
+          if (parsed > 0) stepSize = parsed > 1e10 ? parsed / 1e18 : parsed;
+        }
+      }
+      const stepped = Math.floor(rawQty / stepSize) * stepSize;
+      const decimals = stepSize < 1 ? Math.ceil(-Math.log10(stepSize)) : 0;
+      quantity = stepped.toFixed(decimals);
+      if (parseFloat(quantity) <= 0) return handleError(`USDC amount too small, minimum quantity step is ${stepSize}`);
+      console.log(`USDC ${opts.usdc} -> quantity ${quantity} (price: ${price}, leverage: ${lev}x, step: ${stepSize})`);
+    }
 
     const perpId = await sdk.getPerpetualID(symbol);
     if (!perpId) return handleError(`PerpetualID not found for ${symbol}`);
@@ -56,14 +88,15 @@ export function registerTradeCommands(program: Command) {
       .option("--reduce-only", "Reduce only order")
       .option("--tp <price>", "Take profit trigger price")
       .option("--sl <price>", "Stop loss trigger price")
-      .option("--vault <address>", "Vault/creator address");
+      .option("--vault <address>", "Vault/creator address")
+      .option("--usdc <amount>", "Margin amount in USDC (alternative to quantity)");
 
   orderOpts(
     trade
       .command("buy")
       .description("Place a BUY order")
       .argument("<symbol>", "Trading pair (e.g. BTC-PERP)")
-      .argument("<quantity>", "Order quantity")
+      .argument("[quantity]", "Order quantity (or use --usdc)")
   ).action((symbol, quantity, opts) => placeOrder(program, OrderSide.BUY, symbol, quantity, opts));
 
   orderOpts(
@@ -71,7 +104,7 @@ export function registerTradeCommands(program: Command) {
       .command("sell")
       .description("Place a SELL order")
       .argument("<symbol>", "Trading pair (e.g. BTC-PERP)")
-      .argument("<quantity>", "Order quantity")
+      .argument("[quantity]", "Order quantity (or use --usdc)")
   ).action((symbol, quantity, opts) => placeOrder(program, OrderSide.SELL, symbol, quantity, opts));
 
   trade
@@ -84,11 +117,11 @@ export function registerTradeCommands(program: Command) {
       try {
         const sdk = getSDK();
         await ensureAuth(sdk);
-        const vault = getVaultAddress(opts.vault);
+        const vault = opts.vault || sdk.address;
         const result = await sdk.cancelOrder({
           symbol,
           orderHashes: hashes,
-          ...(vault ? { parentAddress: vault } : {}),
+          parentAddress: vault,
         });
         if (!result.status) return handleError(result.error);
         if (isJson(program)) return printJson(result.data);

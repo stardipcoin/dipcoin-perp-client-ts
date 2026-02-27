@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { getSDK, getVaultAddress, ensureAuth } from "../utils/sdk-factory";
-import { isJson, printJson, printTable, handleError } from "../utils/output";
+import { isJson, printJson, printTable, handleError, formatWei } from "../utils/output";
 
 export function registerHistoryCommands(program: Command) {
   const history = program.command("history").description("History queries");
@@ -16,12 +16,12 @@ export function registerHistoryCommands(program: Command) {
       try {
         const sdk = getSDK();
         await ensureAuth(sdk);
-        const vault = getVaultAddress(opts.vault);
+        const vault = opts.vault || sdk.address;
         const result = await sdk.getHistoryOrders({
           ...(opts.symbol ? { symbol: opts.symbol } : {}),
           page: Number(opts.page),
           pageSize: Number(opts.size),
-          ...(vault ? { parentAddress: vault } : {}),
+          parentAddress: vault,
         });
         if (!result.status) return handleError(result.error);
 
@@ -35,10 +35,10 @@ export function registerHistoryCommands(program: Command) {
             o.symbol || "-",
             o.side || "-",
             o.orderType || "-",
-            o.quantity || "-",
-            o.price || "-",
+            formatWei(o.quantity),
+            formatWei(o.price),
             o.status || "-",
-            o.realizedPnl || "-",
+            formatWei(o.realizedPnl),
             o.createdAt ? new Date(o.createdAt).toLocaleString() : "-",
           ])
         );
@@ -58,12 +58,12 @@ export function registerHistoryCommands(program: Command) {
       try {
         const sdk = getSDK();
         await ensureAuth(sdk);
-        const vault = getVaultAddress(opts.vault);
+        const vault = opts.vault || sdk.address;
         const result = await sdk.getFundingSettlements({
           ...(opts.symbol ? { symbol: opts.symbol } : {}),
           page: Number(opts.page),
           pageSize: Number(opts.size),
-          ...(vault ? { parentAddress: vault } : {}),
+          parentAddress: vault,
         });
         if (!result.status) return handleError(result.error);
 
@@ -75,9 +75,9 @@ export function registerHistoryCommands(program: Command) {
           ["Symbol", "Rate", "Fee", "Qty", "Side", "Time"],
           result.data.data.map((f) => [
             f.symbol || "-",
-            f.fundingRate || "-",
-            f.fundingFee || "-",
-            f.quantity || "-",
+            formatWei(f.fundingRate),
+            formatWei(f.fundingFee),
+            formatWei(f.quantity),
             f.side || "-",
             f.createdAt ? new Date(f.createdAt).toLocaleString() : "-",
           ])
@@ -97,11 +97,11 @@ export function registerHistoryCommands(program: Command) {
       try {
         const sdk = getSDK();
         await ensureAuth(sdk);
-        const vault = getVaultAddress(opts.vault);
+        const vault = opts.vault || sdk.address;
         const result = await sdk.getBalanceChanges({
           page: Number(opts.page),
           pageSize: Number(opts.size),
-          ...(vault ? { parentAddress: vault } : {}),
+          parentAddress: vault,
         });
         if (!result.status) return handleError(result.error);
 
@@ -113,8 +113,8 @@ export function registerHistoryCommands(program: Command) {
           ["Type", "Amount", "Balance", "Symbol", "Time"],
           result.data.data.map((b) => [
             b.type || "-",
-            b.amount || "-",
-            b.balance || "-",
+            formatWei(b.amount),
+            formatWei(b.balance),
             b.symbol || "-",
             b.createdAt ? new Date(b.createdAt).toLocaleString() : "-",
           ])

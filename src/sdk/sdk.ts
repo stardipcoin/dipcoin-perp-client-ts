@@ -2304,6 +2304,21 @@ export class DipCoinPerpSDK {
   }
 
   /**
+   * Set sub-account on-chain (authorize a sub-account address)
+   * @param subAddress Sub-account address to authorize
+   * @returns On-chain transaction result
+   */
+  async setSubAccount(subAddress: string) {
+    return await this.exchangeOnChain.setSubAccount(
+      {
+        account: subAddress,
+        status: true,
+      },
+      this.keypair
+    );
+  }
+
+  /**
    * Deposit to bank (fund account)
    * Deposit USDC from wallet to exchange bank account for trading collateral
    * @param amount Deposit amount in USDC (standard units, e.g., 10 means 10 USDC)
@@ -2341,5 +2356,34 @@ export class DipCoinPerpSDK {
       },
       this.keypair
     );
+  }
+
+  /**
+   * Get all coin balances on-chain for the current wallet address
+   * @returns Array of coin balances with coinType and totalBalance
+   */
+  async getAllBalances(): Promise<SDKResponse<{ coinType: string; totalBalance: string }[]>> {
+    try {
+      const balances = await this.suiClient.getAllBalances({ owner: this.walletAddress });
+      return { status: true, data: balances };
+    } catch (error) {
+      return { status: false, error: formatError(error) };
+    }
+  }
+
+  /**
+   * Get coin metadata (symbol, decimals, name) for a given coin type
+   * @param coinType Full coin type string (e.g., "0x2::sui::SUI")
+   */
+  async getCoinMetadata(coinType: string): Promise<SDKResponse<{ decimals: number; symbol: string; name: string }>> {
+    try {
+      const metadata = await this.suiClient.getCoinMetadata({ coinType });
+      if (!metadata) {
+        return { status: false, error: "Coin metadata not found" };
+      }
+      return { status: true, data: { decimals: metadata.decimals, symbol: metadata.symbol, name: metadata.name } };
+    } catch (error) {
+      return { status: false, error: formatError(error) };
+    }
   }
 }
