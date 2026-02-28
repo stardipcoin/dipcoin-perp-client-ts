@@ -6,25 +6,21 @@ This skill provides access to the DipCoin perpetual contract trading platform on
 
 ## Installation
 
-Run the following commands to clone and set up the CLI tool:
-
 ```bash
-git clone https://github.com/stardipcoin/dipcoin-perp-client-ts.git ~/dipcoin-perp-cli
-cd ~/dipcoin-perp-cli
-npm install
+npm install -g dipcoin-cli
 ```
 
 Verify installation:
 
 ```bash
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts --help
+dipcoin-cli --help
 ```
 
 You should see the help output listing available commands. If you see errors, ensure Node.js >= 18 is installed.
 
 ## Configuration
 
-The CLI reads configuration from a `.env` file in the project root (`~/dipcoin-perp-cli/.env`).
+The CLI reads configuration from a `.env` file in the current working directory.
 
 ### Required Environment Variables
 
@@ -39,21 +35,15 @@ The CLI reads configuration from a `.env` file in the project root (`~/dipcoin-p
 
 **IMPORTANT: Never ask the user for their private key. Never accept, log, or handle private keys in the conversation. The user must configure the `.env` file themselves.**
 
-1. Tell the user to copy the sample config and edit it manually:
-
-```bash
-cp ~/dipcoin-perp-cli/.env.sample ~/dipcoin-perp-cli/.env
-```
-
-2. Instruct the user to open `~/dipcoin-perp-cli/.env` in their text editor and fill in:
+1. Tell the user to create a `.env` file in their working directory and fill in:
    - `PRIVATE_KEY` - their Sui wallet private key (starts with `suiprivkey...`)
    - `NETWORK` - set to `mainnet` or `testnet`
    - (Optional) `SUB_ACCOUNT_KEY` and `VAULT_ADDRESS` if needed
 
-3. After the user confirms they have configured the `.env` file, verify it works:
+2. After the user confirms they have configured the `.env` file, verify it works:
 
 ```bash
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts account info --json
+dipcoin-cli account info --json
 ```
 
 If successful, you will see the account's wallet balance, account value, and margin info in JSON. If it fails with an auth error, ask the user to double-check their `.env` configuration.
@@ -65,7 +55,7 @@ If successful, you will see the account's wallet balance, account value, and mar
 Base command pattern:
 
 ```bash
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts <command> [options] --json
+dipcoin-cli <command> [options] --json
 ```
 
 ---
@@ -74,62 +64,62 @@ cd ~/dipcoin-perp-cli && npx tsx cli/index.ts <command> [options] --json
 
 ```bash
 # List all available trading pairs
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts market pairs --json
+dipcoin-cli market pairs --json
 
 # Get ticker info (lastPrice, markPrice, 24h change, volume, funding rate)
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts market ticker <symbol> --json
+dipcoin-cli market ticker <symbol> --json
 
 # Get order book
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts market orderbook <symbol> --json
+dipcoin-cli market orderbook <symbol> --json
 
 # Get oracle price
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts market oracle <symbol> --json
+dipcoin-cli market oracle <symbol> --json
 ```
 
 ### Account
 
 ```bash
 # View account info (wallet balance, account value, free collateral, margin, unrealized PnL)
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts account info --json
+dipcoin-cli account info --json
 
 # View account info for a vault
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts account info --vault <address> --json
+dipcoin-cli account info --vault <address> --json
 
 # View on-chain wallet coin balances
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts balance --json
+dipcoin-cli balance --json
 
 # Deposit USDC to exchange
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts account deposit <amount> --json
+dipcoin-cli account deposit <amount> --json
 
 # Withdraw USDC from exchange
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts account withdraw <amount> --json
+dipcoin-cli account withdraw <amount> --json
 ```
 
 ### Trading
 
 ```bash
 # Place a BUY market order (specify quantity)
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts trade buy <symbol> <quantity> --leverage <n> --json
+dipcoin-cli trade buy <symbol> <quantity> --leverage <n> --json
 
 # Place a BUY market order (specify USDC margin amount, auto-calculates quantity)
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts trade buy <symbol> --usdc <amount> --leverage <n> --json
+dipcoin-cli trade buy <symbol> --usdc <amount> --leverage <n> --json
 
 # Place a SELL market order
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts trade sell <symbol> <quantity> --leverage <n> --json
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts trade sell <symbol> --usdc <amount> --leverage <n> --json
+dipcoin-cli trade sell <symbol> <quantity> --leverage <n> --json
+dipcoin-cli trade sell <symbol> --usdc <amount> --leverage <n> --json
 
 # Place a LIMIT order
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts trade buy <symbol> <quantity> --type limit --price <price> --leverage <n> --json
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts trade sell <symbol> <quantity> --type limit --price <price> --leverage <n> --json
+dipcoin-cli trade buy <symbol> <quantity> --type limit --price <price> --leverage <n> --json
+dipcoin-cli trade sell <symbol> <quantity> --type limit --price <price> --leverage <n> --json
 
 # Place order with take profit and/or stop loss
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts trade buy <symbol> --usdc <amount> --leverage <n> --tp <price> --sl <price> --json
+dipcoin-cli trade buy <symbol> --usdc <amount> --leverage <n> --tp <price> --sl <price> --json
 
 # Reduce-only order (for closing positions)
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts trade sell <symbol> <quantity> --leverage <n> --reduce-only --json
+dipcoin-cli trade sell <symbol> <quantity> --leverage <n> --reduce-only --json
 
 # Cancel orders by hash
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts trade cancel <symbol> <hash1> [hash2...] --json
+dipcoin-cli trade cancel <symbol> <hash1> [hash2...] --json
 ```
 
 #### Trade Options Reference
@@ -151,27 +141,27 @@ cd ~/dipcoin-perp-cli && npx tsx cli/index.ts trade cancel <symbol> <hash1> [has
 
 ```bash
 # List all open positions
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts position list --json
+dipcoin-cli position list --json
 
 # List positions for a specific symbol
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts position list --symbol <symbol> --json
+dipcoin-cli position list --symbol <symbol> --json
 
 # List positions for a vault
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts position list --vault <address> --json
+dipcoin-cli position list --vault <address> --json
 
 # Set TP/SL on an existing position
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts position tpsl <symbol> --side <buy|sell> --quantity <q> --leverage <n> --tp-trigger <price> --json
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts position tpsl <symbol> --side <buy|sell> --quantity <q> --leverage <n> --sl-trigger <price> --json
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts position tpsl <symbol> --side <buy|sell> --quantity <q> --leverage <n> --tp-trigger <tp_price> --sl-trigger <sl_price> --json
+dipcoin-cli position tpsl <symbol> --side <buy|sell> --quantity <q> --leverage <n> --tp-trigger <price> --json
+dipcoin-cli position tpsl <symbol> --side <buy|sell> --quantity <q> --leverage <n> --sl-trigger <price> --json
+dipcoin-cli position tpsl <symbol> --side <buy|sell> --quantity <q> --leverage <n> --tp-trigger <tp_price> --sl-trigger <sl_price> --json
 
 # TP/SL with limit order type
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts position tpsl <symbol> --side <buy|sell> --quantity <q> --leverage <n> --tp-trigger <price> --tp-type limit --tp-price <limit_price> --json
+dipcoin-cli position tpsl <symbol> --side <buy|sell> --quantity <q> --leverage <n> --tp-trigger <price> --tp-type limit --tp-price <limit_price> --json
 
 # Add margin to a position (on-chain tx)
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts position margin add <symbol> <amount_usdc> --json
+dipcoin-cli position margin add <symbol> <amount_usdc> --json
 
 # Remove margin from a position (on-chain tx)
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts position margin remove <symbol> <amount_usdc> --json
+dipcoin-cli position margin remove <symbol> <amount_usdc> --json
 ```
 
 **TP/SL side note:** The `--side` is the closing side. For a LONG position, the closing side is `sell`. For a SHORT position, the closing side is `buy`.
@@ -180,39 +170,39 @@ cd ~/dipcoin-perp-cli && npx tsx cli/index.ts position margin remove <symbol> <a
 
 ```bash
 # List all open orders
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts orders --json
+dipcoin-cli orders --json
 
 # Filter by symbol
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts orders --symbol <symbol> --json
+dipcoin-cli orders --symbol <symbol> --json
 
 # Filter by vault
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts orders --vault <address> --json
+dipcoin-cli orders --vault <address> --json
 ```
 
 ### Vault / Sub-Account
 
 ```bash
 # Set sub-account (on-chain tx)
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts vault set-sub-account <subAddress> --json
+dipcoin-cli vault set-sub-account <subAddress> --json
 
 # View vault info
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts vault info --address <vault_address> --json
+dipcoin-cli vault info --address <vault_address> --json
 ```
 
 ### History
 
 ```bash
 # Query historical orders
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts history orders --json
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts history orders --symbol <symbol> --page <n> --size <n> --json
+dipcoin-cli history orders --json
+dipcoin-cli history orders --symbol <symbol> --page <n> --size <n> --json
 
 # Query funding settlements
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts history funding --json
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts history funding --symbol <symbol> --json
+dipcoin-cli history funding --json
+dipcoin-cli history funding --symbol <symbol> --json
 
 # Query balance changes
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts history balance --json
-cd ~/dipcoin-perp-cli && npx tsx cli/index.ts history balance --page <n> --size <n> --json
+dipcoin-cli history balance --json
+dipcoin-cli history balance --page <n> --size <n> --json
 
 # All history commands support --vault <address> for vault queries
 ```
