@@ -1,5 +1,6 @@
 import { Command } from "commander";
-import { getSDK } from "../utils/sdk-factory";
+import { getSDK, resolveVaultAddress } from "../utils/sdk-factory";
+import { getGlobalVaultIndex } from "../utils/vault-index";
 import { isJson, printJson, printTable, handleError } from "../utils/output";
 import BigNumber from "bignumber.js";
 
@@ -15,13 +16,17 @@ export function registerBalanceCommand(program: Command) {
     .description("Show on-chain coin balances for the current wallet")
     .action(async () => {
       try {
-        const sdk = getSDK();
-        const result = await sdk.getAllBalances();
+        const vaultIndex = getGlobalVaultIndex(program);
+        const sdk = getSDK(vaultIndex);
+        const vaultAddr = resolveVaultAddress(vaultIndex);
+        const result = await sdk.getAllBalances(vaultAddr);
         if (!result.status || !result.data) return handleError(result.error);
 
         if (isJson(program)) return printJson(result.data);
 
         if (!result.data.length) return console.log("No coins found.");
+
+        if (vaultAddr) console.log(`Balances for vault: ${vaultAddr}`);
 
         const rows: string[][] = [];
         for (const b of result.data) {

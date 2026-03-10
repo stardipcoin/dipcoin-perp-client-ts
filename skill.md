@@ -22,23 +22,22 @@ You should see the help output listing available commands. If you see errors, en
 
 The CLI reads configuration from a `.env` file in the current working directory.
 
-### Required Environment Variables
+### Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `PRIVATE_KEY` | **Yes** | Sui wallet private key (starts with `suiprivkey...`) |
+| `MNEMONIC` | **Yes** | 12-word mnemonic phrase for HD key derivation. Index 0 = main account, index 1+ = vault sub-accounts |
 | `NETWORK` | **Yes** | `mainnet` or `testnet` (default: `testnet`) |
-| `SUB_ACCOUNT_KEY` | No | Sub-account private key for main/sub separation |
-| `VAULT_ADDRESS` | No | Vault address for vault-based queries and trading |
+| `DEFAULT_VAULT_INDEX` | No | Default vault index for HD-derived sub-accounts |
 
 ### Setup Steps
 
-**IMPORTANT: Never ask the user for their private key. Never accept, log, or handle private keys in the conversation. The user must configure the `.env` file themselves.**
+**IMPORTANT: Never ask the user for their mnemonic. Never accept, log, or handle secrets in the conversation. The user must configure the `.env` file themselves.**
 
 1. Tell the user to create a `.env` file in their working directory and fill in:
-   - `PRIVATE_KEY` - their Sui wallet private key (starts with `suiprivkey...`)
+   - `MNEMONIC` - their 12-word mnemonic phrase
    - `NETWORK` - set to `mainnet` or `testnet`
-   - (Optional) `SUB_ACCOUNT_KEY` and `VAULT_ADDRESS` if needed
+   - (Optional) `DEFAULT_VAULT_INDEX` for multi-vault workflows
 
 2. After the user confirms they have configured the `.env` file, verify it works:
 
@@ -82,60 +81,70 @@ dipcoin-cli market oracle <symbol> --json
 # View account info (wallet balance, account value, free collateral, margin, unrealized PnL)
 dipcoin-cli account info --json
 
-# View account info for a vault
+# View account info for a vault (by address or vault-index)
 dipcoin-cli account info --vault <address> --json
+dipcoin-cli --vault-index 1 account info --json
 
-# View on-chain wallet coin balances
+# View on-chain wallet coin balances (main or vault)
 dipcoin-cli balance --json
+dipcoin-cli --vault-index 1 balance --json
 
-# Deposit USDC to exchange
+# Deposit USDC to exchange (main account or vault)
 dipcoin-cli account deposit <amount> --json
+dipcoin-cli --vault-index 1 account deposit <amount> --json
 
-# Withdraw USDC from exchange
+# Withdraw USDC from exchange (main account or vault)
 dipcoin-cli account withdraw <amount> --json
+dipcoin-cli --vault-index 1 account withdraw <amount> --json
 ```
 
 ### Trading
 
 ```bash
-# Place a BUY market order (specify quantity)
-dipcoin-cli trade buy <symbol> <quantity> --leverage <n> --json
-
-# Place a BUY market order (specify USDC margin amount, auto-calculates quantity)
-dipcoin-cli trade buy <symbol> --usdc <amount> --leverage <n> --json
+# Place a BUY market order with USDC margin (default mode)
+dipcoin-cli trade buy BTC 100USDC 10x --json
+dipcoin-cli trade buy BTC-PERP 100 10 --json    # same as above ("USDC" and "x" suffixes are optional)
 
 # Place a SELL market order
-dipcoin-cli trade sell <symbol> <quantity> --leverage <n> --json
-dipcoin-cli trade sell <symbol> --usdc <amount> --leverage <n> --json
+dipcoin-cli trade sell ETH 50USDC 5x --json
 
 # Place a LIMIT order
-dipcoin-cli trade buy <symbol> <quantity> --type limit --price <price> --leverage <n> --json
-dipcoin-cli trade sell <symbol> <quantity> --type limit --price <price> --leverage <n> --json
+dipcoin-cli trade buy BTC 100USDC 10x --type limit --price 95000 --json
 
 # Place order with take profit and/or stop loss
-dipcoin-cli trade buy <symbol> --usdc <amount> --leverage <n> --tp <price> --sl <price> --json
+dipcoin-cli trade buy BTC 100USDC 10x --tp 105000 --sl 90000 --json
+
+# Specify order quantity instead of USDC margin
+dipcoin-cli trade buy BTC 100USDC 10x --qty 0.01 --json
 
 # Reduce-only order (for closing positions)
-dipcoin-cli trade sell <symbol> <quantity> --leverage <n> --reduce-only --json
+dipcoin-cli trade sell BTC 0 10x --qty 0.01 --reduce-only --json
 
 # Cancel orders by hash
 dipcoin-cli trade cancel <symbol> <hash1> [hash2...] --json
 ```
 
-#### Trade Options Reference
+#### Trade Arguments
+
+| Argument | Description | Example |
+|----------|-------------|---------|
+| `<symbol>` | Trading pair (`BTC` or `BTC-PERP`) | `BTC` |
+| `<amount>` | USDC margin amount | `100USDC` or `100` |
+| `<leverage>` | Leverage multiplier | `10x` or `10` |
+
+#### Trade Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--leverage <n>` | Leverage multiplier | 10 |
+| `--qty <quantity>` | Specify order quantity instead of USDC margin | - |
 | `--price <p>` | Limit order price (required for limit orders) | - |
 | `--type <type>` | `market` or `limit` | market |
 | `--reduce-only` | Reduce-only order flag | false |
 | `--tp <price>` | Take profit trigger price | - |
 | `--sl <price>` | Stop loss trigger price | - |
-| `--vault <address>` | Vault/creator address | env VAULT_ADDRESS |
-| `--usdc <amount>` | Margin in USDC (alternative to quantity) | - |
+| `--vault <address>` | Vault/creator address | - |
 
-**Note:** You must specify either `<quantity>` or `--usdc <amount>`, not both.
+**Note:** By default, `<amount>` is USDC margin. Use `--qty` to specify quantity directly (amount argument is ignored when `--qty` is set).
 
 ### Positions
 
@@ -182,11 +191,19 @@ dipcoin-cli orders --vault <address> --json
 ### Vault / Sub-Account
 
 ```bash
-# Set sub-account (on-chain tx)
+# List HD-derived vault addresses (requires MNEMONIC)
+dipcoin-cli vault list --json
+dipcoin-cli vault list --count 10 --json
+
+# Setup vault: derive sub-account at index and register on-chain
+dipcoin-cli vault setup <index> --json
+
+# Set sub-account manually (on-chain tx)
 dipcoin-cli vault set-sub-account <subAddress> --json
 
-# View vault info
+# View vault info (by address or vault-index)
 dipcoin-cli vault info --address <vault_address> --json
+dipcoin-cli --vault-index 1 vault info --json
 ```
 
 ### History
@@ -207,15 +224,29 @@ dipcoin-cli history balance --page <n> --size <n> --json
 # All history commands support --vault <address> for vault queries
 ```
 
+## Multi-Vault Workflow (HD Derivation)
+
+With `MNEMONIC` set, use `--vault-index` to operate on different vaults:
+
+1. **List derived addresses:** `vault list`
+2. **Register vault on-chain:** `vault setup 1`
+3. **Deposit to vault 1:** `account deposit 100 --vault-index 1` (not global flag here)
+4. **Trade on vault 1:** `dipcoin-cli --vault-index 1 trade buy BTC 50USDC 10x`
+5. **Check vault 1 info:** `dipcoin-cli --vault-index 1 account info`
+6. **Check vault 1 balance:** `dipcoin-cli --vault-index 1 balance`
+7. **Check vault 1 positions:** `dipcoin-cli --vault-index 1 position list`
+
+`--vault-index` is a **global option** placed before the subcommand. Index 0 = main account, 1+ = vault sub-accounts.
+
 ## Typical Trading Workflow
 
 1. **Check available pairs:** `market pairs`
 2. **Get current price:** `market ticker BTC-PERP`
 3. **Check account balance:** `account info`
-4. **Open a position:** `trade buy BTC-PERP --usdc 100 --leverage 10 --tp 105000 --sl 90000`
+4. **Open a position:** `trade buy BTC 100USDC 10x --tp 105000 --sl 90000`
 5. **Monitor position:** `position list`
 6. **Monitor orders:** `orders`
-7. **Close position (reduce-only sell):** `trade sell BTC-PERP <quantity> --leverage 10 --reduce-only`
+7. **Close position (reduce-only sell):** `trade sell BTC 0 10x --qty <quantity> --reduce-only`
 8. **Review history:** `history orders --symbol BTC-PERP`
 
 ## Important Notes
@@ -223,8 +254,8 @@ dipcoin-cli history balance --page <n> --size <n> --json
 - All price/quantity values returned by the API are in **wei (18 decimals)**. Divide by `1e18` to get human-readable values. When using `--json`, the output is raw wei.
 - `--usdc` mode auto-converts USDC margin amount to quantity based on current market price and leverage.
 - On-chain operations (deposit, withdraw, margin add/remove, set-sub-account) require Sui chain interaction and may take a few seconds.
-- Authentication is handled automatically using the `PRIVATE_KEY` in `.env`.
+- Authentication is handled automatically using `MNEMONIC` in `.env`.
 - Order hashes returned from trade commands can be used with `trade cancel`.
-- The `--vault` option is for sub-account/vault trading where the vault address acts as the parent.
+- `--vault-index <n>` (global option, before subcommand) selects HD-derived vault. `--vault <address>` (per-command option) is a fallback for explicit address.
 - Available trading pair symbols include: `BTC-PERP`, `ETH-PERP`, `SUI-PERP`, etc. Use `market pairs` to get the full list.
-- **SECURITY:** Never log or expose the user's `PRIVATE_KEY`. Treat it as a secret at all times.
+- **SECURITY:** Never log or expose the user's `MNEMONIC`. Treat it as a secret at all times.

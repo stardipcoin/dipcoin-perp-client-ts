@@ -1,5 +1,6 @@
 import { Command } from "commander";
-import { getSDK, getVaultAddress, ensureAuth } from "../utils/sdk-factory";
+import { getSDK, getVaultSDK, resolveVaultAddress } from "../utils/sdk-factory";
+import { getGlobalVaultIndex } from "../utils/vault-index";
 import { isJson, printJson, printTable, handleError, formatWei } from "../utils/output";
 
 export function registerAccountCommands(program: Command) {
@@ -11,19 +12,20 @@ export function registerAccountCommands(program: Command) {
     .option("--vault <address>", "Vault address")
     .action(async (opts) => {
       try {
-        const sdk = getSDK();
-        await ensureAuth(sdk);
-        const parentAddress = opts.vault || sdk.address;
+        const vaultIndex = getGlobalVaultIndex(program);
+        const sdk = getSDK(vaultIndex);
+        const parentAddress = opts.vault || resolveVaultAddress(vaultIndex) || sdk.address;
         const result = await sdk.getAccountInfo({ parentAddress });
         if (!result.status || !result.data) return handleError(result.error);
 
         if (isJson(program)) return printJson(result.data);
 
         const d = result.data;
+        const label = parentAddress !== sdk.address ? parentAddress : sdk.address;
         printTable(
           ["Field", "Value"],
           [
-            ["Wallet", sdk.address],
+            ["Wallet", label],
             ["Wallet Balance", formatWei(d.walletBalance)],
             ["Account Value", formatWei(d.accountValue)],
             ["Free Collateral", formatWei(d.freeCollateral)],
@@ -42,7 +44,11 @@ export function registerAccountCommands(program: Command) {
     .argument("<amount>", "Amount in USDC")
     .action(async (amount) => {
       try {
-        const sdk = getSDK();
+        const vaultIndex = getGlobalVaultIndex(program);
+        // Use vault SDK when vault-index specified (vault's own keypair signs the tx)
+        const sdk = vaultIndex !== undefined && vaultIndex > 0
+          ? getVaultSDK(vaultIndex)
+          : getSDK();
         const tx = await sdk.depositToBank(Number(amount));
         const status = tx?.effects?.status?.status;
         const error = tx?.effects?.status?.error;
@@ -64,7 +70,11 @@ export function registerAccountCommands(program: Command) {
     .argument("<amount>", "Amount in USDC")
     .action(async (amount) => {
       try {
-        const sdk = getSDK();
+        const vaultIndex = getGlobalVaultIndex(program);
+        // Use vault SDK when vault-index specified (vault's own keypair signs the tx)
+        const sdk = vaultIndex !== undefined && vaultIndex > 0
+          ? getVaultSDK(vaultIndex)
+          : getSDK();
         const tx = await sdk.withdrawFromBank(Number(amount));
         const status = tx?.effects?.status?.status;
         const error = tx?.effects?.status?.error;

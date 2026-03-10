@@ -1,5 +1,6 @@
 import { Command } from "commander";
-import { getSDK, getVaultAddress, ensureAuth } from "../utils/sdk-factory";
+import { getSDK, resolveVaultAddress } from "../utils/sdk-factory";
+import { getGlobalVaultIndex } from "../utils/vault-index";
 import { isJson, printJson, printTable, handleError, formatWei } from "../utils/output";
 
 export function registerHistoryCommands(program: Command) {
@@ -12,16 +13,21 @@ export function registerHistoryCommands(program: Command) {
     .option("--page <n>", "Page number", "1")
     .option("--size <n>", "Page size", "20")
     .option("--vault <address>", "Vault address")
+    .option("--begin-time <ms>", "Begin time filter (epoch ms)")
+    .option("--end-time <ms>", "End time filter (epoch ms)")
     .action(async (opts) => {
       try {
-        const sdk = getSDK();
-        await ensureAuth(sdk);
-        const vault = opts.vault || sdk.address;
+        const vaultIndex = getGlobalVaultIndex(program);
+        const sdk = getSDK(vaultIndex);
+
+        const vault = opts.vault || resolveVaultAddress(vaultIndex) || sdk.address;
         const result = await sdk.getHistoryOrders({
           ...(opts.symbol ? { symbol: opts.symbol } : {}),
           page: Number(opts.page),
           pageSize: Number(opts.size),
           parentAddress: vault,
+          ...(opts.beginTime ? { beginTime: Number(opts.beginTime) } : {}),
+          ...(opts.endTime ? { endTime: Number(opts.endTime) } : {}),
         });
         if (!result.status) return handleError(result.error);
 
@@ -54,16 +60,19 @@ export function registerHistoryCommands(program: Command) {
     .option("--page <n>", "Page number", "1")
     .option("--size <n>", "Page size", "20")
     .option("--vault <address>", "Vault address")
+    .option("--begin-time <ms>", "Begin time filter (epoch ms)")
     .action(async (opts) => {
       try {
-        const sdk = getSDK();
-        await ensureAuth(sdk);
-        const vault = opts.vault || sdk.address;
+        const vaultIndex = getGlobalVaultIndex(program);
+        const sdk = getSDK(vaultIndex);
+
+        const vault = opts.vault || resolveVaultAddress(vaultIndex) || sdk.address;
         const result = await sdk.getFundingSettlements({
           ...(opts.symbol ? { symbol: opts.symbol } : {}),
           page: Number(opts.page),
           pageSize: Number(opts.size),
           parentAddress: vault,
+          ...(opts.beginTime ? { beginTime: Number(opts.beginTime) } : {}),
         });
         if (!result.status) return handleError(result.error);
 
@@ -72,13 +81,14 @@ export function registerHistoryCommands(program: Command) {
         if (!result.data?.data?.length) return console.log("No funding settlements.");
 
         printTable(
-          ["Symbol", "Rate", "Fee", "Qty", "Side", "Time"],
-          result.data.data.map((f) => [
+          ["Symbol", "Side", "Size", "Rate", "Settlement", "Price", "Time"],
+          result.data.data.map((f: any) => [
             f.symbol || "-",
+            f.positionIsLong === 1 ? "LONG" : f.positionIsLong === 0 ? "SHORT" : (f.side || "-"),
+            formatWei(f.size || f.quantity),
             formatWei(f.fundingRate),
-            formatWei(f.fundingFee),
-            formatWei(f.quantity),
-            f.side || "-",
+            formatWei(f.settlementAmount || f.fundingFee),
+            formatWei(f.oraclePrice),
             f.createdAt ? new Date(f.createdAt).toLocaleString() : "-",
           ])
         );
@@ -93,15 +103,18 @@ export function registerHistoryCommands(program: Command) {
     .option("--page <n>", "Page number", "1")
     .option("--size <n>", "Page size", "20")
     .option("--vault <address>", "Vault address")
+    .option("--begin-time <ms>", "Begin time filter (epoch ms)")
     .action(async (opts) => {
       try {
-        const sdk = getSDK();
-        await ensureAuth(sdk);
-        const vault = opts.vault || sdk.address;
+        const vaultIndex = getGlobalVaultIndex(program);
+        const sdk = getSDK(vaultIndex);
+
+        const vault = opts.vault || resolveVaultAddress(vaultIndex) || sdk.address;
         const result = await sdk.getBalanceChanges({
           page: Number(opts.page),
           pageSize: Number(opts.size),
           parentAddress: vault,
+          ...(opts.beginTime ? { beginTime: Number(opts.beginTime) } : {}),
         });
         if (!result.status) return handleError(result.error);
 
@@ -110,13 +123,12 @@ export function registerHistoryCommands(program: Command) {
         if (!result.data?.data?.length) return console.log("No balance changes.");
 
         printTable(
-          ["Type", "Amount", "Balance", "Symbol", "Time"],
-          result.data.data.map((b) => [
-            b.type || "-",
-            formatWei(b.amount),
-            formatWei(b.balance),
-            b.symbol || "-",
-            b.createdAt ? new Date(b.createdAt).toLocaleString() : "-",
+          ["Type", "Amount", "TxDigest", "Time"],
+          result.data.data.map((b: any) => [
+            b.bizTypeDesc || b.type || "-",
+            formatWei(b.settlementAmount || b.amount),
+            b.txDigest ? b.txDigest.slice(0, 16) + "..." : "-",
+            (b.createdTime || b.createdAt) ? new Date(b.createdTime || b.createdAt).toLocaleString() : "-",
           ])
         );
       } catch (e) {

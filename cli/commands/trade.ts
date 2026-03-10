@@ -1,29 +1,55 @@
 import { Command } from "commander";
-import { getSDK, getVaultAddress, ensureAuth } from "../utils/sdk-factory";
+import { getSDK, resolveVaultAddress } from "../utils/sdk-factory";
+import { getGlobalVaultIndex } from "../utils/vault-index";
 import { isJson, printJson, handleError } from "../utils/output";
 import { OrderSide, OrderType } from "../../src";
 
-async function placeOrder(program: Command, side: OrderSide, symbol: string, quantity: string | undefined, opts: any) {
+/**
+ * Parse amount string: "100USDC" -> 100, "100" -> 100
+ */
+function parseUsdcAmount(raw: string): number {
+  const cleaned = raw.replace(/usdc$/i, "");
+  const val = parseFloat(cleaned);
+  if (isNaN(val) || val <= 0) throw new Error(`Invalid amount: ${raw}`);
+  return val;
+}
+
+/**
+ * Parse leverage string: "10x" -> "10", "10" -> "10"
+ */
+function parseLeverage(raw: string): string {
+  const cleaned = raw.replace(/x$/i, "");
+  const val = parseFloat(cleaned);
+  if (isNaN(val) || val <= 0) throw new Error(`Invalid leverage: ${raw}`);
+  return cleaned;
+}
+
+async function placeOrder(program: Command, side: OrderSide, symbol: string, amount: string, leverage: string, opts: any) {
   try {
-    const sdk = getSDK();
-    await ensureAuth(sdk);
+    const vaultIndex = getGlobalVaultIndex(program);
+    const sdk = getSDK(vaultIndex);
 
-    const leverage = opts.leverage || "10";
-    const orderType = opts.type?.toUpperCase() === "LIMIT" ? OrderType.LIMIT : OrderType.MARKET;
-    const vault = opts.vault || undefined;
+    const lev = parseLeverage(leverage);
+    const orderType = opts.price ? OrderType.LIMIT : OrderType.MARKET;
 
-    if (quantity && opts.usdc) return handleError("Cannot specify both <quantity> and --usdc");
-    if (!quantity && !opts.usdc) return handleError("Must specify either <quantity> or --usdc <amount>");
+    // Normalize symbol: "BTC" -> "BTC-PERP"
+    if (!symbol.includes("-")) symbol = `${symbol}-PERP`;
 
-    if (opts.usdc) {
+    let quantity: string;
+
+    if (opts.qty) {
+      // Explicit quantity mode
+      quantity = opts.qty;
+    } else {
+      // Default: USDC margin mode
+      const usdcAmount = parseUsdcAmount(amount);
+
       const tickerResult = await sdk.getTicker(symbol);
       if (!tickerResult.status || !tickerResult.data) return handleError("Failed to get market price for USDC conversion");
       const priceWei = parseFloat(tickerResult.data.lastPrice);
       if (!priceWei || priceWei <= 0) return handleError("Invalid market price");
       const price = priceWei / 1e18;
-      const lev = parseFloat(leverage);
-      const usdcAmount = parseFloat(opts.usdc);
-      const rawQty = usdcAmount * lev / price;
+      const rawQty = usdcAmount * parseFloat(lev) / price;
 
       let stepSize = 0.01;
       const pairResult = await sdk.getTradingPairs();
@@ -41,7 +67,7 @@ async function placeOrder(program: Command, side: OrderSide, symbol: string, qua
       const decimals = stepSize < 1 ? Math.ceil(-Math.log10(stepSize)) : 0;
       quantity = stepped.toFixed(decimals);
       if (parseFloat(quantity) <= 0) return handleError(`USDC amount too small, minimum quantity step is ${stepSize}`);
-      console.log(`USDC ${opts.usdc} -> quantity ${quantity} (price: ${price}, leverage: ${lev}x, step: ${stepSize})`);
+      console.log(`USDC ${usdcAmount} -> quantity ${quantity} (price: ${price}, leverage: ${lev}x, step: ${stepSize})`);
     }
 
     const perpId = await sdk.getPerpetualID(symbol);
@@ -53,16 +79,23 @@ async function placeOrder(program: Command, side: OrderSide, symbol: string, qua
       side,
       orderType,
       quantity,
-      leverage,
+      leverage: lev,
       reduceOnly: opts.reduceOnly || false,
     };
 
-    if (orderType === OrderType.LIMIT) {
-      if (!opts.price) return handleError("--price is required for LIMIT orders");
+    if (opts.price) {
       params.price = opts.price;
     }
 
-    if (vault) params.creator = vault;
+    // --vault <address> as explicit creator override (fallback)
+    if (opts.vault) {
+      params.creator = opts.vault;
+    } else {
+      // With vault-index, the SDK handles creator via sub-keypair automatically
+      const vaultAddr = resolveVaultAddress(vaultIndex);
+      if (vaultAddr) params.creator = vaultAddr;
+    }
+
     if (opts.tp) params.tpTriggerPrice = opts.tp;
     if (opts.sl) params.slTriggerPrice = opts.sl;
 
@@ -82,30 +115,30 @@ export function registerTradeCommands(program: Command) {
 
   const orderOpts = (cmd: Command) =>
     cmd
-      .option("--leverage <n>", "Leverage multiplier", "10")
-      .option("--price <p>", "Order price (required for limit)")
-      .option("--type <type>", "Order type: market or limit", "market")
+      .option("--qty <quantity>", "Specify order quantity instead of USDC margin")
+      .option("--price <p>", "Limit order price (auto-enables limit order)")
       .option("--reduce-only", "Reduce only order")
       .option("--tp <price>", "Take profit trigger price")
       .option("--sl <price>", "Stop loss trigger price")
-      .option("--vault <address>", "Vault/creator address")
-      .option("--usdc <amount>", "Margin amount in USDC (alternative to quantity)");
+      .option("--vault <address>", "Vault/creator address (fallback)");
 
   orderOpts(
     trade
       .command("buy")
-      .description("Place a BUY order")
-      .argument("<symbol>", "Trading pair (e.g. BTC-PERP)")
-      .argument("[quantity]", "Order quantity (or use --usdc)")
-  ).action((symbol, quantity, opts) => placeOrder(program, OrderSide.BUY, symbol, quantity, opts));
+      .description("Place a BUY order (e.g. trade buy BTC 100USDC 10x)")
+      .argument("<symbol>", "Trading pair (e.g. BTC or BTC-PERP)")
+      .argument("<amount>", "USDC margin amount (e.g. 100 or 100USDC)")
+      .argument("<leverage>", "Leverage multiplier (e.g. 10 or 10x)")
+  ).action((symbol, amount, leverage, opts) => placeOrder(program, OrderSide.BUY, symbol, amount, leverage, opts));
 
   orderOpts(
     trade
       .command("sell")
-      .description("Place a SELL order")
-      .argument("<symbol>", "Trading pair (e.g. BTC-PERP)")
-      .argument("[quantity]", "Order quantity (or use --usdc)")
-  ).action((symbol, quantity, opts) => placeOrder(program, OrderSide.SELL, symbol, quantity, opts));
+      .description("Place a SELL order (e.g. trade sell BTC 100USDC 10x)")
+      .argument("<symbol>", "Trading pair (e.g. BTC or BTC-PERP)")
+      .argument("<amount>", "USDC margin amount (e.g. 100 or 100USDC)")
+      .argument("<leverage>", "Leverage multiplier (e.g. 10 or 10x)")
+  ).action((symbol, amount, leverage, opts) => placeOrder(program, OrderSide.SELL, symbol, amount, leverage, opts));
 
   trade
     .command("cancel")
@@ -115,13 +148,13 @@ export function registerTradeCommands(program: Command) {
     .option("--vault <address>", "Parent address")
     .action(async (symbol, hashes, opts) => {
       try {
-        const sdk = getSDK();
-        await ensureAuth(sdk);
-        const vault = opts.vault || sdk.address;
+        const vaultIndex = getGlobalVaultIndex(program);
+        const sdk = getSDK(vaultIndex);
+        const parentAddress = opts.vault || resolveVaultAddress(vaultIndex) || sdk.address;
         const result = await sdk.cancelOrder({
           symbol,
           orderHashes: hashes,
-          parentAddress: vault,
+          parentAddress,
         });
         if (!result.status) return handleError(result.error);
         if (isJson(program)) return printJson(result.data);

@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { getSDK, ensureAuth } from "../utils/sdk-factory";
+import { getSDK } from "../utils/sdk-factory";
 import { isJson, printJson, printTable, handleError } from "../utils/output";
 
 export function registerMarketCommands(program: Command) {

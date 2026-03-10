@@ -34,7 +34,8 @@ npm install
 Create a `.env` file in the project root:
 
 ```bash
-PRIVATE_KEY=your-private-key-here
+MNEMONIC=word1 word2 word3 ... word12
+NETWORK=testnet
 ```
 
 ### 3. Run Example

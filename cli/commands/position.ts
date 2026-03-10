@@ -1,5 +1,6 @@
 import { Command } from "commander";
-import { getSDK, getVaultAddress, ensureAuth } from "../utils/sdk-factory";
+import { getSDK, getVaultSDK, resolveVaultAddress } from "../utils/sdk-factory";
+import { getGlobalVaultIndex } from "../utils/vault-index";
 import { isJson, printJson, printTable, handleError, formatWei } from "../utils/output";
 import { OrderSide, OrderType } from "../../src";
 
@@ -13,9 +14,9 @@ export function registerPositionCommands(program: Command) {
     .option("--vault <address>", "Vault address")
     .action(async (opts) => {
       try {
-        const sdk = getSDK();
-        await ensureAuth(sdk);
-        const vault = opts.vault || sdk.address;
+        const vaultIndex = getGlobalVaultIndex(program);
+        const sdk = getSDK(vaultIndex);
+        const vault = opts.vault || resolveVaultAddress(vaultIndex) || sdk.address;
         const params: any = {
           parentAddress: vault,
           ...(opts.symbol ? { symbol: opts.symbol } : {}),
@@ -61,8 +62,6 @@ export function registerPositionCommands(program: Command) {
     .action(async (symbol, opts) => {
       try {
         const sdk = getSDK();
-        await ensureAuth(sdk);
-
         const perpId = await sdk.getPerpetualID(symbol);
         if (!perpId) return handleError(`PerpetualID not found for ${symbol}`);
 
@@ -114,7 +113,10 @@ export function registerPositionCommands(program: Command) {
     .argument("<amount>", "Amount in USDC")
     .action(async (symbol, amount) => {
       try {
-        const sdk = getSDK();
+        const vaultIndex = getGlobalVaultIndex(program);
+        const sdk = vaultIndex !== undefined && vaultIndex > 0
+          ? getVaultSDK(vaultIndex)
+          : getSDK();
         const tx = await sdk.addMargin({ symbol, amount: Number(amount) });
         if (isJson(program)) return printJson({ digest: tx?.digest, status: "ok" });
         console.log(`Added ${amount} margin to ${symbol}. Tx: ${tx?.digest || JSON.stringify(tx)}`);
@@ -130,7 +132,10 @@ export function registerPositionCommands(program: Command) {
     .argument("<amount>", "Amount in USDC")
     .action(async (symbol, amount) => {
       try {
-        const sdk = getSDK();
+        const vaultIndex = getGlobalVaultIndex(program);
+        const sdk = vaultIndex !== undefined && vaultIndex > 0
+          ? getVaultSDK(vaultIndex)
+          : getSDK();
         const tx = await sdk.removeMargin({ symbol, amount: Number(amount) });
         if (isJson(program)) return printJson({ digest: tx?.digest, status: "ok" });
         console.log(`Removed ${amount} margin from ${symbol}. Tx: ${tx?.digest || JSON.stringify(tx)}`);

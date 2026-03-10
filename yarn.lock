@@ -293,10 +293,10 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@dipcoinlab/perp-ts-library@^0.0.17":
-  version "0.0.17"
-  resolved "https://registry.npmjs.org/@dipcoinlab/perp-ts-library/-/perp-ts-library-0.0.17.tgz"
-  integrity sha512-uiw6nmM8by2qIIefjXtdUJGzc0jZp6VRjHtPINPjD1A2p20uWX+lskz5qm/2y4Lv7ljDPoPgWgGBOmowxYsW9Q==
+"@dipcoinlab/perp-ts-library@^0.0.23":
+  version "0.0.23"
+  resolved "https://registry.npmjs.org/@dipcoinlab/perp-ts-library/-/perp-ts-library-0.0.23.tgz"
+  integrity sha512-MCWUoAGMVKs0r+og8z+w98Rh4/SvpVoc8yvCxCihEcxY5Q32l8YRqiqkEYUJojfpyXN/1iJoZ8piX9dySdEAlg==
   dependencies:
     "@mysten/sui" "^1.28.0"
     "@mysten/zklogin" "^0.7.22"

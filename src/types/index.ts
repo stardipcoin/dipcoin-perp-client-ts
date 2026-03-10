@@ -1,6 +1,7 @@
 // Copyright (c) 2025 Dipcoin LLC
 // SPDX-License-Identifier: Apache-2.0
 
+import type { Keypair } from "@mysten/sui/cryptography";
 
 /**
  * SDK Configuration Interface
@@ -13,7 +14,7 @@ export interface DipCoinPerpSDKOptions {
   /** Optional custom RPC endpoint for Sui */
   customRpc?: string;
   /** Optional sub-account private key or keypair for trading operations (main/sub separation) */
-  subAccountKey?: string;
+  subAccountKey?: string | Keypair;
 }
 
 /**
@@ -520,6 +521,8 @@ export interface HistoryOrdersParams {
   page?: number;
   pageSize?: number;
   parentAddress?: string;
+  beginTime?: number;
+  endTime?: number;
 }
 
 /**
@@ -552,6 +555,7 @@ export interface FundingSettlementsParams {
   page?: number;
   pageSize?: number;
   parentAddress?: string;
+  beginTime?: number;
 }
 
 /**
@@ -575,6 +579,7 @@ export interface BalanceChangesParams {
   page?: number;
   pageSize?: number;
   parentAddress?: string;
+  beginTime?: number;
 }
 
 /**

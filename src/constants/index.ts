@@ -28,6 +28,7 @@ export const API_ENDPOINTS = {
   FUNDING_SETTLEMENTS: "/api/perp-trade-api/history/funding-settlements",
   BALANCE_CHANGES: "/api/perp-trade-api/history/balance-changes",
   ORACLE: "/api/perp-market-api/oracle",
+  VAULTS_BY_CREATOR: "/api/perp-vault-api/public/vaults/by-creator",
 } as const;
 
 /**
