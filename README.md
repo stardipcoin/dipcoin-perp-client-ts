@@ -20,12 +20,21 @@ npm install dipcoin-cli
 
 ### Configuration
 
-Create a `.env` file in your working directory (or at `~/.config/dipcoin/env` for global config):
+Create a config file at `~/.config/dipcoin/env` (recommended) or `.env` in your working directory:
 
 ```bash
-MNEMONIC=word1 word2 word3 ... word12
-NETWORK=testnet    # or mainnet
+mkdir -p ~/.config/dipcoin
+cat > ~/.config/dipcoin/env << 'EOF'
+DIPCOIN_MNEMONIC=word1 word2 word3 ... word12
+DIPCOIN_NETWORK=mainnet
+EOF
 ```
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DIPCOIN_MNEMONIC` | Yes | 12-word Sui mnemonic phrase |
+| `DIPCOIN_NETWORK` | No | `mainnet` or `testnet` (default: `testnet`) |
+| `DIPCOIN_DEFAULT_VAULT_INDEX` | No | Default sub-account index |
 
 Index 0 of the HD derivation path is the main account. Use `--vault-index` for sub-accounts.
 
@@ -104,7 +113,7 @@ dipcoin-cli trade buy BTC 100USDC 10x --price 95000
 dipcoin-cli trade buy BTC 100USDC 10x --tp 105000 --sl 90000
 
 # Explicit quantity instead of USDC margin
-dipcoin-cli trade buy BTC 100USDC 10x --qty 0.01
+dipcoin-cli trade buy BTC 0 10x --qty 0.01
 
 # Reduce-only (for closing)
 dipcoin-cli trade sell BTC 0 10x --qty 0.01 --reduce-only
@@ -219,6 +228,26 @@ dipcoin-cli --vault-index 1 position list
 ```
 
 `--vault-index` is always a **global option** placed before the subcommand.
+
+## AI Agent Integration (OpenClaw)
+
+This project includes a [`SKILL.md`](./SKILL.md) file that teaches AI agents how to use the CLI. To use it with [OpenClaw](https://openclaw.ai) or similar agent platforms:
+
+1. **Import the skill file** — Copy the contents of `SKILL.md` into your agent's skill/knowledge base, or point the agent to the raw file URL:
+   ```
+   https://raw.githubusercontent.com/stardipcoin/dipcoin-perp-client-ts/main/SKILL.md
+   ```
+
+2. **Ensure the CLI is installed** in the agent's execution environment:
+   ```bash
+   npm install -g dipcoin-cli
+   ```
+
+3. **Configure credentials** — Set `DIPCOIN_MNEMONIC` and `DIPCOIN_NETWORK` as environment variables in the agent's runtime.
+
+4. **Use `--json` flag** — The skill guide instructs agents to always use `--json` for machine-readable output.
+
+The `SKILL.md` covers the complete workflow: installation, configuration, market data, trading, position management, and error handling.
 
 ## SDK Usage
 
@@ -400,7 +429,7 @@ if (result.status) {
 ```bash
 npm run cli              # Run CLI in dev mode (tsx)
 npm run build            # Build for distribution
-npm run example          # Run example script
+npm run lint             # Run ESLint
 ```
 
 ## License

@@ -1,6 +1,6 @@
 {
   "name": "dipcoin-cli",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "DipCoin Perpetual Trading CLI",
   "bin": {
     "dipcoin-cli": "./dist/cli.cjs"
