@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { getSDK, getOnChainSDK, resolveVaultAddress } from "../utils/sdk-factory";
 import { getGlobalVaultIndex } from "../utils/vault-index";
 import { isJson, printJson, printTable, handleError, formatWei, normalizeSymbol } from "../utils/output";
-import { OrderSide, OrderType } from "../../src";
+import { OrderSide, OrderType } from "../../src/types";
 
 export function registerPositionCommands(program: Command) {
   const position = program.command("position").description("Position operations");

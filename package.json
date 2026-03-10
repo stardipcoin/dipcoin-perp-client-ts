@@ -1,18 +1,7 @@
 {
   "name": "dipcoin-cli",
   "version": "0.8.2",
-  "description": "TypeScript SDK for DipCoin Perpetual Trading on Sui blockchain",
-  "exports": {
-    ".": {
-      "import": "./dist/index.esm.js",
-      "require": "./dist/index.cjs.js",
-      "types": "./dist/index.d.ts"
-    }
-  },
-  "main": "dist/index.cjs.js",
-  "module": "dist/index.esm.js",
-  "types": "dist/index.d.ts",
-  "typings": "dist/index.d.ts",
+  "description": "DipCoin Perpetual Trading CLI",
   "bin": {
     "dipcoin-cli": "./dist/cli.cjs"
   },
@@ -22,21 +11,15 @@
   "author": "dipcoinlab",
   "license": "Apache-2.0",
   "scripts": {
-    "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
-    "test": "jest",
+    "lint": "eslint src/ cli/ --ext .js,.jsx,.ts,.tsx",
     "clean": "rm -rf dist build package",
-    "ts-node": "ts-node",
-    "example": "tsx examples/index.ts",
     "cli": "tsx cli/index.ts",
-    "docs": "typedoc --entryPoints src/index.ts",
-    "build-ts": "tsc -p tsconfig.json",
     "build": "rm -rf dist; rollup -c rollup.config.js; mkdir -p dist/config/deployed/mainnet dist/config/deployed/testnet; cp -r src/config/deployed/* dist/config/deployed/"
   },
   "keywords": [
     "sui",
     "perp",
     "perpetual",
-    "sdk",
     "dipcoin",
     "trading"
   ],
@@ -53,20 +36,16 @@
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.3",
     "@rollup/plugin-node-resolve": "^16.0.1",
-    "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-typescript": "^8.5.0",
     "@types/bignumber.js": "^5.0.4",
-    "@types/jest": "^28.1.1",
     "@types/node": "^20.8.10",
     "@typescript-eslint/eslint-plugin": "^5.26.0",
     "@typescript-eslint/parser": "^5.26.0",
     "eslint": "^8.16.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-prettier": "^4.0.0",
-    "jest": "^28.1.1",
     "prettier": "^2.6.2",
     "rollup": "^2.79.0",
-    "ts-jest": "^28.0.4",
     "ts-node": "^10.9.1",
     "tsx": "^4.20.6",
     "typescript": "^5.0.4"

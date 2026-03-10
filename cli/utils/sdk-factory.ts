@@ -13,7 +13,7 @@ if (fs.existsSync(globalEnv)) {
   dotenv.config({ path: localEnv });
 }
 
-import { initDipCoinPerpSDK, DipCoinPerpSDK } from "../../src";
+import { initDipCoinPerpSDK, DipCoinPerpSDK } from "../../src/sdk";
 
 // Cache SDK instances by a composite key
 const sdkCache = new Map<string, DipCoinPerpSDK>();

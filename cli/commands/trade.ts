@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { getSDK, resolveVaultAddress } from "../utils/sdk-factory";
 import { getGlobalVaultIndex } from "../utils/vault-index";
 import { isJson, printJson, handleError, normalizeSymbol } from "../utils/output";
-import { OrderSide, OrderType } from "../../src";
+import { OrderSide, OrderType } from "../../src/types";
 
 /**
  * Parse amount string: "100USDC" -> 100, "100" -> 100

@@ -4,6 +4,7 @@
 import { SuiClient, SuiTransactionBlockResponse, getFullnodeUrl } from "@mysten/sui/client";
 import { Keypair } from "@mysten/sui/cryptography";
 import { Transaction } from "@mysten/sui/transactions";
+import { initSDKOptions } from "../config";
 import BigNumber from "bignumber.js";
 import { SuiPriceServiceConnection, SuiPythClient } from "@pythnetwork/pyth-sui-js";
 import { API_ENDPOINTS, DECIMALS, ONBOARDING_MESSAGE, PYTH_CONFIG } from "../constants";
@@ -2792,4 +2793,18 @@ export class DipCoinPerpSDK {
       return { status: false, error: formatError(error) };
     }
   }
+}
+
+/**
+ * Initialize DipCoin Perpetual Trading SDK
+ * @param privateKey Private key string or Keypair instance
+ * @param options SDK configuration options
+ * @returns Initialized SDK instance
+ */
+export function initDipCoinPerpSDK(
+  privateKey: string | Keypair,
+  options: Partial<DipCoinPerpSDKOptions> & { network: "mainnet" | "testnet" }
+): DipCoinPerpSDK {
+  const sdkOptions = initSDKOptions(options);
+  return new DipCoinPerpSDK(privateKey, sdkOptions);
 }
