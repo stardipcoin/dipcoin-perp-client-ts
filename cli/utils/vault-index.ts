@@ -14,7 +14,7 @@ export function getGlobalVaultIndex(prog: Command): number | undefined {
     return n;
   }
   // Fallback to DEFAULT_VAULT_INDEX env
-  const envDefault = process.env.DEFAULT_VAULT_INDEX;
+  const envDefault = process.env.DIPCOIN_DEFAULT_VAULT_INDEX;
   if (envDefault !== undefined) {
     const n = Number(envDefault);
     if (!isNaN(n) && n >= 0) return n;

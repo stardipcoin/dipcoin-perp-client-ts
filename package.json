@@ -1,6 +1,6 @@
 {
   "name": "dipcoin-cli",
-  "version": "0.8.0",
+  "version": "0.8.2",
   "description": "TypeScript SDK for DipCoin Perpetual Trading on Sui blockchain",
   "exports": {
     ".": {
@@ -53,7 +53,7 @@
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.3",
     "@rollup/plugin-node-resolve": "^16.0.1",
-    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-typescript": "^8.5.0",
     "@types/bignumber.js": "^5.0.4",
     "@types/jest": "^28.1.1",

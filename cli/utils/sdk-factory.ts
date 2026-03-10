@@ -31,9 +31,18 @@ export function deriveKeypairFromMnemonic(mnemonic: string, index: number): Ed25
  * Read and validate MNEMONIC from env.
  */
 function getMnemonic(): string {
-  const mnemonic = process.env.MNEMONIC;
+  const mnemonic = process.env.DIPCOIN_MNEMONIC;
   if (!mnemonic) {
-    console.error(`Error: MNEMONIC not set. Create config at ${globalEnv}`);
+    console.error(`Error: DIPCOIN_MNEMONIC not set.\n`);
+    console.error(`Option 1 — Create a config file:\n`);
+    console.error(`  mkdir -p ~/.config/dipcoin`);
+    console.error(`  cat > ~/.config/dipcoin/env << 'EOF'`);
+    console.error(`DIPCOIN_MNEMONIC=word1 word2 word3 ... word12`);
+    console.error(`DIPCOIN_NETWORK=testnet`);
+    console.error(`EOF\n`);
+    console.error(`Option 2 — Export environment variables:\n`);
+    console.error(`  export DIPCOIN_MNEMONIC="word1 word2 word3 ... word12"`);
+    console.error(`  export DIPCOIN_NETWORK=testnet   # or mainnet\n`);
     process.exit(1);
   }
   return mnemonic;
@@ -43,7 +52,7 @@ function getMnemonic(): string {
  * Get the network from env.
  */
 function getNetwork(): "mainnet" | "testnet" {
-  return (process.env.NETWORK as "mainnet" | "testnet") || "testnet";
+  return (process.env.DIPCOIN_NETWORK as "mainnet" | "testnet") || "testnet";
 }
 
 /**
