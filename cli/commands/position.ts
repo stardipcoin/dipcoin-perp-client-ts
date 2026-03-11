@@ -1,7 +1,13 @@
 import { Command } from "commander";
-import { getSDK, getOnChainSDK, resolveVaultAddress } from "../utils/sdk-factory";
-import { getGlobalVaultIndex } from "../utils/vault-index";
-import { isJson, printJson, printTable, handleError, formatWei, normalizeSymbol } from "../utils/output";
+import { getSDK } from "../utils/sdk-factory";
+import {
+  isJson,
+  printJson,
+  printTable,
+  handleError,
+  formatWei,
+  normalizeSymbol,
+} from "../utils/output";
 import { OrderSide, OrderType } from "../../src/types";
 
 export function registerPositionCommands(program: Command) {
@@ -14,11 +20,10 @@ export function registerPositionCommands(program: Command) {
     .option("--vault <address>", "Vault address")
     .action(async (opts) => {
       try {
-        const vaultIndex = getGlobalVaultIndex(program);
-        const sdk = getSDK(vaultIndex);
-        const vault = opts.vault || resolveVaultAddress(vaultIndex) || sdk.address;
+        const sdk = getSDK();
+        const parentAddress = opts.vault || sdk.address;
         const params: any = {
-          parentAddress: vault,
+          parentAddress,
           ...(opts.symbol ? { symbol: opts.symbol } : {}),
         };
         const result = await sdk.getPositions(params as any);
@@ -114,8 +119,7 @@ export function registerPositionCommands(program: Command) {
     .argument("<amount>", "Amount in USDC")
     .action(async (symbol, amount) => {
       try {
-        const vaultIndex = getGlobalVaultIndex(program);
-        const sdk = getOnChainSDK(vaultIndex);
+        const sdk = getSDK();
         const tx = await sdk.addMargin({ symbol, amount: Number(amount) });
         if (isJson(program)) return printJson({ digest: tx?.digest, status: "ok" });
         console.log(`Added ${amount} margin to ${symbol}. Tx: ${tx?.digest || JSON.stringify(tx)}`);
@@ -131,11 +135,12 @@ export function registerPositionCommands(program: Command) {
     .argument("<amount>", "Amount in USDC")
     .action(async (symbol, amount) => {
       try {
-        const vaultIndex = getGlobalVaultIndex(program);
-        const sdk = getOnChainSDK(vaultIndex);
+        const sdk = getSDK();
         const tx = await sdk.removeMargin({ symbol, amount: Number(amount) });
         if (isJson(program)) return printJson({ digest: tx?.digest, status: "ok" });
-        console.log(`Removed ${amount} margin from ${symbol}. Tx: ${tx?.digest || JSON.stringify(tx)}`);
+        console.log(
+          `Removed ${amount} margin from ${symbol}. Tx: ${tx?.digest || JSON.stringify(tx)}`
+        );
       } catch (e) {
         handleError(e);
       }

@@ -1,6 +1,5 @@
 import { Command } from "commander";
-import { getSDK, resolveVaultAddress } from "../utils/sdk-factory";
-import { getGlobalVaultIndex } from "../utils/vault-index";
+import { getSDK } from "../utils/sdk-factory";
 import { isJson, printJson, printTable, handleError, formatWei } from "../utils/output";
 
 export function registerOrdersCommand(program: Command) {
@@ -11,11 +10,10 @@ export function registerOrdersCommand(program: Command) {
     .option("--vault <address>", "Vault address")
     .action(async (opts) => {
       try {
-        const vaultIndex = getGlobalVaultIndex(program);
-        const sdk = getSDK(vaultIndex);
-        const vault = opts.vault || resolveVaultAddress(vaultIndex) || sdk.address;
+        const sdk = getSDK();
+        const parentAddress = opts.vault || sdk.address;
         const params: any = {
-          parentAddress: vault,
+          parentAddress,
           ...(opts.symbol ? { symbol: opts.symbol } : {}),
         };
         const result = await sdk.getOpenOrders(params as any);

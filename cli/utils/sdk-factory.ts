@@ -2,7 +2,9 @@ import dotenv from "dotenv";
 import path from "path";
 import os from "os";
 import fs from "fs";
+import { Keypair } from "@mysten/sui/cryptography";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
+import { fromExportedKeypair } from "../../src/utils";
 
 const globalEnv = path.join(os.homedir(), ".config", "dipcoin", "env");
 const localEnv = path.resolve(process.cwd(), ".env");
@@ -15,37 +17,39 @@ if (fs.existsSync(globalEnv)) {
 
 import { initDipCoinPerpSDK, DipCoinPerpSDK } from "../../src/sdk";
 
-// Cache SDK instances by a composite key
-const sdkCache = new Map<string, DipCoinPerpSDK>();
+// Cache SDK instance
+let cachedSDK: DipCoinPerpSDK | null = null;
 
 /**
- * Derive an Ed25519 keypair from a mnemonic at a given account index.
- * Uses SLIP-0010 path: m/44'/784'/{index}'/0'/0'
+ * Resolve a keypair from DIPCOIN_PRIVATE_KEY or DIPCOIN_MNEMONIC.
+ * - DIPCOIN_PRIVATE_KEY: Sui private key string (suiprivkey1...), supports ED25519/Secp256k1/Secp256r1
+ * - DIPCOIN_MNEMONIC: 12-word mnemonic, derives keypair at m/44'/784'/0'/0'/0'
  */
-export function deriveKeypairFromMnemonic(mnemonic: string, index: number): Ed25519Keypair {
-  const path = `m/44'/784'/${index}'/0'/0'`;
-  return Ed25519Keypair.deriveKeypair(mnemonic, path);
-}
-
-/**
- * Read and validate MNEMONIC from env.
- */
-function getMnemonic(): string {
+function getKeypair(): Keypair {
+  const privateKey = process.env.DIPCOIN_PRIVATE_KEY;
   const mnemonic = process.env.DIPCOIN_MNEMONIC;
-  if (!mnemonic) {
-    console.error(`Error: DIPCOIN_MNEMONIC not set.\n`);
-    console.error(`Option 1 — Create a config file:\n`);
-    console.error(`  mkdir -p ~/.config/dipcoin`);
-    console.error(`  cat > ~/.config/dipcoin/env << 'EOF'`);
-    console.error(`DIPCOIN_MNEMONIC=word1 word2 word3 ... word12`);
-    console.error(`DIPCOIN_NETWORK=testnet`);
-    console.error(`EOF\n`);
-    console.error(`Option 2 — Export environment variables:\n`);
-    console.error(`  export DIPCOIN_MNEMONIC="word1 word2 word3 ... word12"`);
-    console.error(`  export DIPCOIN_NETWORK=testnet   # or mainnet\n`);
-    process.exit(1);
+
+  if (privateKey) {
+    return fromExportedKeypair(privateKey);
   }
-  return mnemonic;
+
+  if (mnemonic) {
+    return Ed25519Keypair.deriveKeypair(mnemonic, `m/44'/784'/0'/0'/0'`);
+  }
+
+  console.error(`Error: DIPCOIN_PRIVATE_KEY or DIPCOIN_MNEMONIC not set.\n`);
+  console.error(`Option 1 — Private key (recommended):\n`);
+  console.error(`  mkdir -p ~/.config/dipcoin`);
+  console.error(`  cat > ~/.config/dipcoin/env << 'EOF'`);
+  console.error(`DIPCOIN_PRIVATE_KEY=suiprivkey1...`);
+  console.error(`DIPCOIN_NETWORK=testnet`);
+  console.error(`EOF\n`);
+  console.error(`Option 2 — Mnemonic:\n`);
+  console.error(`  cat > ~/.config/dipcoin/env << 'EOF'`);
+  console.error(`DIPCOIN_MNEMONIC=word1 word2 word3 ... word12`);
+  console.error(`DIPCOIN_NETWORK=testnet`);
+  console.error(`EOF\n`);
+  process.exit(1);
 }
 
 /**
@@ -56,79 +60,15 @@ function getNetwork(): "mainnet" | "testnet" {
 }
 
 /**
- * Trading mode SDK: main keypair = index 0, sub keypair = index N.
- * Used for order signing where creator = main address, signer = sub keypair.
- * When no vaultIndex provided, returns SDK with main account only (index 0).
+ * Get or create the SDK instance (singleton).
  */
-export function getSDK(vaultIndex?: number): DipCoinPerpSDK {
-  const cacheKey = `trading:${vaultIndex ?? "main"}`;
-  if (sdkCache.has(cacheKey)) return sdkCache.get(cacheKey)!;
+export function getSDK(): DipCoinPerpSDK {
+  if (cachedSDK) return cachedSDK;
 
-  const mnemonic = getMnemonic();
+  const keypair = getKeypair();
   const network = getNetwork();
-  const mainKeypair = deriveKeypairFromMnemonic(mnemonic, 0);
-
-  if (vaultIndex !== undefined && vaultIndex > 0) {
-    const subKeypair = deriveKeypairFromMnemonic(mnemonic, vaultIndex);
-    const sdk = initDipCoinPerpSDK(mainKeypair, { network, subAccountKey: subKeypair });
-    sdkCache.set(cacheKey, sdk);
-    return sdk;
-  }
-
-  const sdk = initDipCoinPerpSDK(mainKeypair, { network });
-  sdkCache.set(cacheKey, sdk);
-  return sdk;
-}
-
-/**
- * Vault on-chain mode SDK: main keypair = index N.
- * Used for vault's own deposit/withdraw/balance where the vault keypair signs the tx.
- */
-export function getVaultSDK(vaultIndex: number): DipCoinPerpSDK {
-  const cacheKey = `vault:${vaultIndex}`;
-  if (sdkCache.has(cacheKey)) return sdkCache.get(cacheKey)!;
-
-  const mnemonic = getMnemonic();
-  const network = getNetwork();
-  const vaultKeypair = deriveKeypairFromMnemonic(mnemonic, vaultIndex);
-  const sdk = initDipCoinPerpSDK(vaultKeypair, { network });
-  sdkCache.set(cacheKey, sdk);
-  return sdk;
-}
-
-/**
- * Resolve vault address from vault index or explicit address.
- * Returns undefined for main account (no vault).
- */
-export function resolveVaultAddress(vaultIndex?: number, vaultAddr?: string): string | undefined {
-  if (vaultAddr) return vaultAddr;
-  if (vaultIndex !== undefined && vaultIndex > 0) {
-    const keypair = deriveKeypairFromMnemonic(getMnemonic(), vaultIndex);
-    return keypair.getPublicKey().toSuiAddress();
-  }
-  return undefined;
-}
-
-/**
- * List derived vault addresses from mnemonic.
- */
-export function listVaultAddresses(count: number): { index: number; address: string; path: string }[] {
-  const mnemonic = getMnemonic();
-  const results: { index: number; address: string; path: string }[] = [];
-  for (let i = 0; i < count; i++) {
-    const path = `m/44'/784'/${i}'/0'/0'`;
-    const keypair = deriveKeypairFromMnemonic(mnemonic, i);
-    results.push({ index: i, address: keypair.getPublicKey().toSuiAddress(), path });
-  }
-  return results;
-}
-
-/**
- * Get the appropriate SDK for on-chain operations (deposit/withdraw/margin).
- * Uses the vault's own keypair when vault-index > 0, otherwise main account.
- */
-export function getOnChainSDK(vaultIndex?: number): DipCoinPerpSDK {
-  return (vaultIndex !== undefined && vaultIndex > 0) ? getVaultSDK(vaultIndex) : getSDK();
+  cachedSDK = initDipCoinPerpSDK(keypair, { network });
+  return cachedSDK;
 }
 
 export async function ensureAuth(sdk: DipCoinPerpSDK): Promise<void> {

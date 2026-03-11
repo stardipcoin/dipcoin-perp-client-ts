@@ -19,7 +19,7 @@ Before using the CLI, set up your credentials. Choose one of two methods:
 ```bash
 mkdir -p ~/.config/dipcoin
 cat > ~/.config/dipcoin/env << 'EOF'
-DIPCOIN_MNEMONIC=word1 word2 word3 ... word12
+DIPCOIN_PRIVATE_KEY=suiprivkey1...
 DIPCOIN_NETWORK=mainnet
 EOF
 ```
@@ -27,7 +27,7 @@ EOF
 ### Method 2: Environment variables
 
 ```bash
-export DIPCOIN_MNEMONIC="word1 word2 word3 ... word12"
+export DIPCOIN_PRIVATE_KEY="suiprivkey1..."
 export DIPCOIN_NETWORK=mainnet   # or testnet
 ```
 
@@ -35,9 +35,11 @@ export DIPCOIN_NETWORK=mainnet   # or testnet
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DIPCOIN_MNEMONIC` | Yes | 12-word Sui mnemonic phrase |
+| `DIPCOIN_PRIVATE_KEY` | One of these | Sui private key (`suiprivkey1...`), supports ED25519/Secp256k1/Secp256r1 |
+| `DIPCOIN_MNEMONIC` | is required | 12-word Sui mnemonic phrase (derives keypair at `m/44'/784'/0'/0'/0'`) |
 | `DIPCOIN_NETWORK` | No | `mainnet` or `testnet` (default: `testnet`) |
-| `DIPCOIN_DEFAULT_VAULT_INDEX` | No | Default sub-account index |
+
+If both are set, `DIPCOIN_PRIVATE_KEY` takes precedence.
 
 ## Global Options
 
@@ -50,7 +52,6 @@ dipcoin-cli [global-options] <command> [command-options]
 | Option | Description |
 |--------|-------------|
 | `--json` | Output in JSON format (machine-readable, recommended for agents) |
-| `--vault-index <n>` | Use HD-derived sub-account at index N (0 = main account) |
 | `-V, --version` | Show version |
 
 **Important for agents:** Always use `--json` to get structured JSON output for parsing.
@@ -155,7 +156,7 @@ dipcoin-cli trade cancel <symbol> <hash1> [hash2...]
 | `--reduce-only` | Reduce-only order (for closing positions) |
 | `--tp <price>` | Take profit trigger price |
 | `--sl <price>` | Stop loss trigger price |
-| `--vault <address>` | Vault/creator address override |
+| `--vault <address>` | Vault/creator address (for trading vault positions) |
 
 ### Positions
 
@@ -203,23 +204,6 @@ dipcoin-cli --json history balance
 ```
 
 All history commands support `--vault <address>` and `--begin-time <ms>` (epoch milliseconds).
-
-### Sub-Accounts (HD-derived)
-
-The CLI derives multiple accounts from a single mnemonic. Index 0 = main account, index 1+ = sub-accounts.
-
-```bash
-# List derived addresses
-dipcoin-cli --json sub-account list --count 5
-
-# Register sub-account on-chain (one-time setup)
-dipcoin-cli sub-account setup 1
-
-# Use sub-account for trading (global option)
-dipcoin-cli --vault-index 1 trade buy BTC 100USDC 10x
-dipcoin-cli --vault-index 1 position list
-dipcoin-cli --vault-index 1 account info
-```
 
 ### Vault Operations (on-chain fund management)
 
@@ -302,7 +286,7 @@ dipcoin-cli trade sell BTC 0 10x --qty 0.01 --reduce-only
 
 - Non-zero exit code indicates failure
 - With `--json`, errors are in the JSON output's `error` field
-- Common errors: `DIPCOIN_MNEMONIC not set`, `PerpetualID not found`, `Authentication failed`
+- Common errors: `DIPCOIN_PRIVATE_KEY or DIPCOIN_MNEMONIC not set`, `PerpetualID not found`, `Authentication failed`
 - If authentication fails, the CLI automatically re-authenticates on retry
 
 ## Notes

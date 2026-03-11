@@ -31,22 +31,24 @@ There are no tests configured — jest and test files have been removed.
 - On-chain transaction building and execution via `@mysten/sui` and `@pythnetwork/pyth-sui-js`
 - Order signing with the order-signer module
 
-**CLI (`cli/`)** — Commander.js commands that consume the SDK. Each file in `cli/commands/` registers a command group (trade, position, market, orders, account, balance, history, vault, sub-account).
+**CLI (`cli/`)** — Commander.js commands that consume the SDK. Each file in `cli/commands/` registers a command group (trade, position, market, orders, account, balance, history, vault).
 
 ### Key modules
 
-- `src/onchain/transaction-builder.ts` — Builds Sui `Transaction` objects for deposit, withdraw, margin adjustment, sub-account operations. Reads deployment config for package IDs and object IDs.
+- `src/onchain/transaction-builder.ts` — Builds Sui `Transaction` objects for deposit, withdraw, margin adjustment. Reads deployment config for package IDs and object IDs.
 - `src/onchain/exchange.ts` — Executes built transactions against the Sui RPC.
 - `src/onchain/order-signer.ts` — Constructs order message bytes for off-chain signature verification.
 - `src/services/httpClient.ts` — HTTP client that spawns `curl` subprocesses. Adds `X-Wallet-Address` and `Authorization: Bearer` headers for authenticated endpoints.
 - `src/config/deployed/` — JSON deployment configs per network (mainnet/testnet) containing package IDs, object IDs, and per-market Perpetual/PriceInfoObject IDs.
 - `src/utils/jwt-cache.ts` — Persists JWT tokens to `~/.config/dipcoin/jwt/<address>.json`.
 
-### SDK factory and vault system (`cli/utils/sdk-factory.ts`)
+### SDK factory (`cli/utils/sdk-factory.ts`)
 
-The CLI derives Sui keypairs from a mnemonic using SLIP-0010 HD paths (`m/44'/784'/{index}'/0'/0'`). Index 0 is the main account; index N (>0) creates a sub-account/vault keypair. Two SDK creation modes:
-- `getSDK(vaultIndex?)` — Trading mode: main keypair signs auth, sub-keypair signs orders
-- `getVaultSDK(vaultIndex)` — On-chain mode: vault keypair is the signer for deposit/withdraw
+The CLI resolves a Sui keypair from environment configuration:
+- `DIPCOIN_PRIVATE_KEY` — Sui private key (`suiprivkey1...`), supports ED25519/Secp256k1/Secp256r1 (takes precedence)
+- `DIPCOIN_MNEMONIC` — 12-word mnemonic, derives keypair at `m/44'/784'/0'/0'/0'`
+
+The SDK instance is cached as a singleton. All commands use `getSDK()` with no arguments.
 
 ### Wei convention
 
@@ -55,9 +57,9 @@ Prices, quantities, and most numeric values from the API and deployment config u
 ### Environment variables
 
 Env loaded from `~/.config/dipcoin/env` or `.env` in cwd:
-- `DIPCOIN_MNEMONIC` — 12-word Sui mnemonic (required)
+- `DIPCOIN_PRIVATE_KEY` — Sui private key (recommended)
+- `DIPCOIN_MNEMONIC` — 12-word Sui mnemonic (alternative)
 - `DIPCOIN_NETWORK` — `mainnet` or `testnet` (default: testnet)
-- `DIPCOIN_DEFAULT_VAULT_INDEX` — Default vault index
 
 ## Code Style
 

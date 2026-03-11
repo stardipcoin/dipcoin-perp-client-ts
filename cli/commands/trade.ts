@@ -1,6 +1,5 @@
 import { Command } from "commander";
-import { getSDK, resolveVaultAddress } from "../utils/sdk-factory";
-import { getGlobalVaultIndex } from "../utils/vault-index";
+import { getSDK } from "../utils/sdk-factory";
 import { isJson, printJson, handleError, normalizeSymbol } from "../utils/output";
 import { OrderSide, OrderType } from "../../src/types";
 
@@ -24,10 +23,16 @@ function parseLeverage(raw: string): string {
   return cleaned;
 }
 
-async function placeOrder(program: Command, side: OrderSide, symbol: string, amount: string, leverage: string, opts: any) {
+async function placeOrder(
+  program: Command,
+  side: OrderSide,
+  symbol: string,
+  amount: string,
+  leverage: string,
+  opts: any
+) {
   try {
-    const vaultIndex = getGlobalVaultIndex(program);
-    const sdk = getSDK(vaultIndex);
+    const sdk = getSDK();
 
     const lev = parseLeverage(leverage);
     const orderType = opts.price ? OrderType.LIMIT : OrderType.MARKET;
@@ -44,11 +49,12 @@ async function placeOrder(program: Command, side: OrderSide, symbol: string, amo
       const usdcAmount = parseUsdcAmount(amount);
 
       const tickerResult = await sdk.getTicker(symbol);
-      if (!tickerResult.status || !tickerResult.data) return handleError("Failed to get market price for USDC conversion");
+      if (!tickerResult.status || !tickerResult.data)
+        return handleError("Failed to get market price for USDC conversion");
       const priceWei = parseFloat(tickerResult.data.lastPrice);
       if (!priceWei || priceWei <= 0) return handleError("Invalid market price");
       const price = priceWei / 1e18;
-      const rawQty = usdcAmount * parseFloat(lev) / price;
+      const rawQty = (usdcAmount * parseFloat(lev)) / price;
 
       let stepSize = 0.01;
       const pairResult = await sdk.getTradingPairs();
@@ -65,8 +71,11 @@ async function placeOrder(program: Command, side: OrderSide, symbol: string, amo
       const stepped = Math.floor(rawQty / stepSize) * stepSize;
       const decimals = stepSize < 1 ? Math.ceil(-Math.log10(stepSize)) : 0;
       quantity = stepped.toFixed(decimals);
-      if (parseFloat(quantity) <= 0) return handleError(`USDC amount too small, minimum quantity step is ${stepSize}`);
-      console.log(`USDC ${usdcAmount} -> quantity ${quantity} (price: ${price}, leverage: ${lev}x, step: ${stepSize})`);
+      if (parseFloat(quantity) <= 0)
+        return handleError(`USDC amount too small, minimum quantity step is ${stepSize}`);
+      console.log(
+        `USDC ${usdcAmount} -> quantity ${quantity} (price: ${price}, leverage: ${lev}x, step: ${stepSize})`
+      );
     }
 
     const perpId = await sdk.getPerpetualID(symbol);
@@ -86,13 +95,9 @@ async function placeOrder(program: Command, side: OrderSide, symbol: string, amo
       params.price = opts.price;
     }
 
-    // --vault <address> as explicit creator override (fallback)
+    // --vault <address> for trading on behalf of a vault
     if (opts.vault) {
       params.creator = opts.vault;
-    } else {
-      // With vault-index, the SDK handles creator via sub-keypair automatically
-      const vaultAddr = resolveVaultAddress(vaultIndex);
-      if (vaultAddr) params.creator = vaultAddr;
     }
 
     if (opts.tp) params.tpTriggerPrice = opts.tp;
@@ -119,7 +124,7 @@ export function registerTradeCommands(program: Command) {
       .option("--reduce-only", "Reduce only order")
       .option("--tp <price>", "Take profit trigger price")
       .option("--sl <price>", "Stop loss trigger price")
-      .option("--vault <address>", "Vault/creator address (fallback)");
+      .option("--vault <address>", "Vault/creator address");
 
   orderOpts(
     trade
@@ -128,7 +133,9 @@ export function registerTradeCommands(program: Command) {
       .argument("<symbol>", "Trading pair (e.g. BTC or BTC-PERP)")
       .argument("<amount>", "USDC margin amount (e.g. 100 or 100USDC)")
       .argument("<leverage>", "Leverage multiplier (e.g. 10 or 10x)")
-  ).action((symbol, amount, leverage, opts) => placeOrder(program, OrderSide.BUY, symbol, amount, leverage, opts));
+  ).action((symbol, amount, leverage, opts) =>
+    placeOrder(program, OrderSide.BUY, symbol, amount, leverage, opts)
+  );
 
   orderOpts(
     trade
@@ -137,7 +144,9 @@ export function registerTradeCommands(program: Command) {
       .argument("<symbol>", "Trading pair (e.g. BTC or BTC-PERP)")
       .argument("<amount>", "USDC margin amount (e.g. 100 or 100USDC)")
       .argument("<leverage>", "Leverage multiplier (e.g. 10 or 10x)")
-  ).action((symbol, amount, leverage, opts) => placeOrder(program, OrderSide.SELL, symbol, amount, leverage, opts));
+  ).action((symbol, amount, leverage, opts) =>
+    placeOrder(program, OrderSide.SELL, symbol, amount, leverage, opts)
+  );
 
   trade
     .command("cancel")
@@ -148,9 +157,8 @@ export function registerTradeCommands(program: Command) {
     .action(async (symbol, hashes, opts) => {
       try {
         symbol = normalizeSymbol(symbol);
-        const vaultIndex = getGlobalVaultIndex(program);
-        const sdk = getSDK(vaultIndex);
-        const parentAddress = opts.vault || resolveVaultAddress(vaultIndex) || sdk.address;
+        const sdk = getSDK();
+        const parentAddress = opts.vault || sdk.address;
         const result = await sdk.cancelOrder({
           symbol,
           orderHashes: hashes,

@@ -1,6 +1,5 @@
 import { Command } from "commander";
-import { getSDK, resolveVaultAddress } from "../utils/sdk-factory";
-import { getGlobalVaultIndex } from "../utils/vault-index";
+import { getSDK } from "../utils/sdk-factory";
 import { isJson, printJson, printTable, handleError, formatWei } from "../utils/output";
 
 export function registerHistoryCommands(program: Command) {
@@ -17,15 +16,13 @@ export function registerHistoryCommands(program: Command) {
     .option("--end-time <ms>", "End time filter (epoch ms)")
     .action(async (opts) => {
       try {
-        const vaultIndex = getGlobalVaultIndex(program);
-        const sdk = getSDK(vaultIndex);
-
-        const vault = opts.vault || resolveVaultAddress(vaultIndex) || sdk.address;
+        const sdk = getSDK();
+        const parentAddress = opts.vault || sdk.address;
         const result = await sdk.getHistoryOrders({
           ...(opts.symbol ? { symbol: opts.symbol } : {}),
           page: Number(opts.page),
           pageSize: Number(opts.size),
-          parentAddress: vault,
+          parentAddress,
           ...(opts.beginTime ? { beginTime: Number(opts.beginTime) } : {}),
           ...(opts.endTime ? { endTime: Number(opts.endTime) } : {}),
         });
@@ -63,15 +60,13 @@ export function registerHistoryCommands(program: Command) {
     .option("--begin-time <ms>", "Begin time filter (epoch ms)")
     .action(async (opts) => {
       try {
-        const vaultIndex = getGlobalVaultIndex(program);
-        const sdk = getSDK(vaultIndex);
-
-        const vault = opts.vault || resolveVaultAddress(vaultIndex) || sdk.address;
+        const sdk = getSDK();
+        const parentAddress = opts.vault || sdk.address;
         const result = await sdk.getFundingSettlements({
           ...(opts.symbol ? { symbol: opts.symbol } : {}),
           page: Number(opts.page),
           pageSize: Number(opts.size),
-          parentAddress: vault,
+          parentAddress,
           ...(opts.beginTime ? { beginTime: Number(opts.beginTime) } : {}),
         });
         if (!result.status) return handleError(result.error);
@@ -84,7 +79,7 @@ export function registerHistoryCommands(program: Command) {
           ["Symbol", "Side", "Size", "Rate", "Settlement", "Price", "Time"],
           result.data.data.map((f: any) => [
             f.symbol || "-",
-            f.positionIsLong === 1 ? "LONG" : f.positionIsLong === 0 ? "SHORT" : (f.side || "-"),
+            f.positionIsLong === 1 ? "LONG" : f.positionIsLong === 0 ? "SHORT" : f.side || "-",
             formatWei(f.size || f.quantity),
             formatWei(f.fundingRate),
             formatWei(f.settlementAmount || f.fundingFee),
@@ -106,14 +101,12 @@ export function registerHistoryCommands(program: Command) {
     .option("--begin-time <ms>", "Begin time filter (epoch ms)")
     .action(async (opts) => {
       try {
-        const vaultIndex = getGlobalVaultIndex(program);
-        const sdk = getSDK(vaultIndex);
-
-        const vault = opts.vault || resolveVaultAddress(vaultIndex) || sdk.address;
+        const sdk = getSDK();
+        const parentAddress = opts.vault || sdk.address;
         const result = await sdk.getBalanceChanges({
           page: Number(opts.page),
           pageSize: Number(opts.size),
-          parentAddress: vault,
+          parentAddress,
           ...(opts.beginTime ? { beginTime: Number(opts.beginTime) } : {}),
         });
         if (!result.status) return handleError(result.error);
@@ -128,7 +121,9 @@ export function registerHistoryCommands(program: Command) {
             b.bizTypeDesc || b.type || "-",
             formatWei(b.settlementAmount || b.amount),
             b.txDigest ? b.txDigest.slice(0, 16) + "..." : "-",
-            (b.createdTime || b.createdAt) ? new Date(b.createdTime || b.createdAt).toLocaleString() : "-",
+            b.createdTime || b.createdAt
+              ? new Date(b.createdTime || b.createdAt).toLocaleString()
+              : "-",
           ])
         );
       } catch (e) {

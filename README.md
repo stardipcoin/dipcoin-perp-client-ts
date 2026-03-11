@@ -25,18 +25,18 @@ Create a config file at `~/.config/dipcoin/env` (recommended) or `.env` in your 
 ```bash
 mkdir -p ~/.config/dipcoin
 cat > ~/.config/dipcoin/env << 'EOF'
-DIPCOIN_MNEMONIC=word1 word2 word3 ... word12
+DIPCOIN_PRIVATE_KEY=suiprivkey1...
 DIPCOIN_NETWORK=mainnet
 EOF
 ```
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DIPCOIN_MNEMONIC` | Yes | 12-word Sui mnemonic phrase |
+| `DIPCOIN_PRIVATE_KEY` | One of these | Sui private key (`suiprivkey1...`), supports ED25519/Secp256k1/Secp256r1 |
+| `DIPCOIN_MNEMONIC` | is required | 12-word Sui mnemonic phrase (derives keypair at `m/44'/784'/0'/0'/0'`) |
 | `DIPCOIN_NETWORK` | No | `mainnet` or `testnet` (default: `testnet`) |
-| `DIPCOIN_DEFAULT_VAULT_INDEX` | No | Default sub-account index |
 
-Index 0 of the HD derivation path is the main account. Use `--vault-index` for sub-accounts.
+If both `DIPCOIN_PRIVATE_KEY` and `DIPCOIN_MNEMONIC` are set, the private key takes precedence.
 
 ### Basic Workflow
 
@@ -70,7 +70,6 @@ dipcoin-cli history orders --symbol BTC-PERP
 | Option | Description |
 |--------|-------------|
 | `--json` | Output in JSON format (machine-readable) |
-| `--vault-index <n>` | Use HD-derived sub-account at index N (placed before subcommand) |
 | `-V, --version` | Show version |
 
 ### market
@@ -131,7 +130,7 @@ dipcoin-cli trade cancel <symbol> <hash1> [hash2...]
 | `--reduce-only` | Reduce-only order |
 | `--tp <price>` | Take profit trigger price |
 | `--sl <price>` | Stop loss trigger price |
-| `--vault <address>` | Vault/creator address (fallback) |
+| `--vault <address>` | Vault/creator address (for trading vault positions) |
 
 ### position
 
@@ -186,16 +185,6 @@ dipcoin-cli vault set-min-deposit <vaultId> <amount>
 dipcoin-cli vault set-auto-close <vaultId> [--disable]
 ```
 
-### sub-account
-
-HD-derived sub-account management:
-
-```bash
-dipcoin-cli sub-account list [--count <n>]  # List derived addresses (default 5)
-dipcoin-cli sub-account setup <index>       # Derive and register sub-account on-chain
-dipcoin-cli sub-account set <subAddress>    # Authorize a sub-account address
-```
-
 ### history
 
 ```bash
@@ -205,29 +194,6 @@ dipcoin-cli history balance [--page <n>] [--size <n>]
 ```
 
 All history commands support `--vault <address>` and `--begin-time <ms>`.
-
-## Multi-Vault Workflow
-
-The CLI uses HD key derivation from your mnemonic. Index 0 is the main account, index 1+ are sub-accounts.
-
-```bash
-# List derived addresses
-dipcoin-cli sub-account list
-
-# Register sub-account 1 on-chain
-dipcoin-cli sub-account setup 1
-
-# Deposit to sub-account 1
-dipcoin-cli --vault-index 1 account deposit 100
-
-# Trade on sub-account 1
-dipcoin-cli --vault-index 1 trade buy BTC 50USDC 10x
-
-# Check sub-account 1 positions
-dipcoin-cli --vault-index 1 position list
-```
-
-`--vault-index` is always a **global option** placed before the subcommand.
 
 ## AI Agent Integration (OpenClaw)
 
@@ -243,7 +209,7 @@ This project includes a [`SKILL.md`](./SKILL.md) file that teaches AI agents how
    npm install -g dipcoin-cli
    ```
 
-3. **Configure credentials** — Set `DIPCOIN_MNEMONIC` and `DIPCOIN_NETWORK` as environment variables in the agent's runtime.
+3. **Configure credentials** — Set `DIPCOIN_PRIVATE_KEY` (or `DIPCOIN_MNEMONIC`) and `DIPCOIN_NETWORK` as environment variables in the agent's runtime.
 
 4. **Use `--json` flag** — The skill guide instructs agents to always use `--json` for machine-readable output.
 
@@ -257,12 +223,14 @@ The `SKILL.md` covers the complete workflow: installation, configuration, market
 import { initDipCoinPerpSDK } from "dipcoin-cli";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 
+// From mnemonic
 const keypair = Ed25519Keypair.deriveKeypair("your mnemonic phrase ...");
 const sdk = initDipCoinPerpSDK(keypair, { network: "mainnet" });
 
-// With sub-account for vault trading
-const subKeypair = Ed25519Keypair.deriveKeypair("your mnemonic", "m/44'/784'/1'/0'/0'");
-const vaultSdk = initDipCoinPerpSDK(keypair, { network: "mainnet", subAccountKey: subKeypair });
+// Or from private key
+import { fromExportedKeypair } from "dipcoin-cli";
+const keypair2 = fromExportedKeypair("suiprivkey1...");
+const sdk2 = initDipCoinPerpSDK(keypair2, { network: "mainnet" });
 ```
 
 ### Authentication
