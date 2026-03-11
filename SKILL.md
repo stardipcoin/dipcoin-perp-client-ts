@@ -188,10 +188,10 @@ dipcoin-cli position margin remove BTC 2
 
 ```bash
 # List all open orders
-dipcoin-cli --json orders
+dipcoin-cli --json trade orders
 
 # Filter by symbol
-dipcoin-cli --json orders --symbol BTC-PERP
+dipcoin-cli --json trade orders --symbol BTC-PERP
 ```
 
 ### History
@@ -282,7 +282,7 @@ dipcoin-cli --json market orderbook BTC # check liquidity
 ```bash
 dipcoin-cli --json account info        # check balance & margin
 dipcoin-cli --json position list       # check existing positions
-dipcoin-cli --json orders              # check open orders
+dipcoin-cli --json trade orders              # check open orders
 ```
 
 ### 3. Place a trade
@@ -296,7 +296,7 @@ dipcoin-cli --json trade buy BTC 100USDC 10x --tp 105000 --sl 90000
 
 ```bash
 dipcoin-cli --json position list       # monitor positions
-dipcoin-cli --json orders              # monitor orders
+dipcoin-cli --json trade orders              # monitor orders
 
 # Adjust TP/SL if needed
 dipcoin-cli position tpsl BTC --side sell --quantity 0.01 --leverage 10 \

@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { getSDK } from "../utils/sdk-factory";
-import { isJson, printJson, printTable, handleError, normalizeSymbol } from "../utils/output";
+import { isJson, printJson, printTable, handleError, normalizeSymbol, formatWei } from "../utils/output";
 
 export function registerMarketCommands(program: Command) {
   const market = program.command("market").description("Market data");
@@ -39,17 +39,22 @@ export function registerMarketCommands(program: Command) {
         if (isJson(program)) return printJson(result.data);
 
         const t = result.data;
+        const fmtRate = (v: any) => {
+          if (!v) return "-";
+          const n = Number(v) / 1e18;
+          return isNaN(n) ? "-" : (n * 100).toFixed(4) + "%";
+        };
         printTable(
           ["Field", "Value"],
           [
             ["Symbol", t.symbol],
-            ["Last Price", t.lastPrice],
-            ["Mark Price", t.markPrice || "-"],
-            ["24h Change", `${t.change24h || "-"} (${t.rate24h || "-"})`],
-            ["24h High/Low", `${t.high24h} / ${t.low24h}`],
-            ["24h Volume", t.volume24h],
-            ["Open Interest", t.openInterest || "-"],
-            ["Funding Rate", t.fundingRate || "-"],
+            ["Last Price", formatWei(t.lastPrice)],
+            ["Mark Price", t.markPrice ? formatWei(t.markPrice) : "-"],
+            ["24h Change", `${t.change24h ? formatWei(t.change24h) : "-"} (${fmtRate(t.rate24h)})`],
+            ["24h High/Low", `${formatWei(t.high24h)} / ${formatWei(t.low24h)}`],
+            ["24h Volume", formatWei(t.volume24h)],
+            ["Open Interest", t.openInterest ? formatWei(t.openInterest) : "-"],
+            ["Funding Rate", fmtRate(t.fundingRate)],
           ]
         );
       } catch (e) {
@@ -74,11 +79,11 @@ export function registerMarketCommands(program: Command) {
         console.log(`\n  Order Book: ${symbol}`);
         console.log("  --- Asks (sell) ---");
         ob.asks.slice(0, 10).reverse().forEach((a) => {
-          console.log(`    ${a.price.padStart(14)}  |  ${a.quantity}`);
+          console.log(`    ${formatWei(a.price).padStart(14)}  |  ${formatWei(a.quantity)}`);
         });
         console.log("  --- Bids (buy) ---");
         ob.bids.slice(0, 10).forEach((b) => {
-          console.log(`    ${b.price.padStart(14)}  |  ${b.quantity}`);
+          console.log(`    ${formatWei(b.price).padStart(14)}  |  ${formatWei(b.quantity)}`);
         });
       } catch (e) {
         handleError(e);
@@ -97,7 +102,7 @@ export function registerMarketCommands(program: Command) {
         if (!result.status) return handleError(result.error);
 
         if (isJson(program)) return printJson({ symbol, oraclePrice: result.data });
-        console.log(`Oracle price for ${symbol}: ${result.data}`);
+        console.log(`Oracle price for ${symbol}: ${formatWei(result.data)}`);
       } catch (e) {
         handleError(e);
       }

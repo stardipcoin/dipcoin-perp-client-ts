@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { getSDK } from "../utils/sdk-factory";
-import { isJson, printJson, handleError, normalizeSymbol } from "../utils/output";
+import { isJson, printJson, printTable, handleError, normalizeSymbol, formatWei } from "../utils/output";
 import { OrderSide, OrderType } from "../../src/types";
 
 /**
@@ -167,6 +167,44 @@ export function registerTradeCommands(program: Command) {
         if (!result.status) return handleError(result.error);
         if (isJson(program)) return printJson(result.data);
         console.log("Orders cancelled:", hashes.join(", "));
+      } catch (e) {
+        handleError(e);
+      }
+    });
+
+  trade
+    .command("orders")
+    .description("List open orders")
+    .option("--symbol <s>", "Filter by symbol")
+    .option("--vault <address>", "Vault address")
+    .action(async (opts) => {
+      try {
+        const sdk = getSDK();
+        const parentAddress = opts.vault || sdk.address;
+        const params: any = {
+          parentAddress,
+          ...(opts.symbol ? { symbol: opts.symbol } : {}),
+        };
+        const result = await sdk.getOpenOrders(params as any);
+        if (!result.status) return handleError(result.error);
+
+        if (isJson(program)) return printJson(result.data);
+
+        if (!result.data?.length) return console.log("No open orders.");
+
+        printTable(
+          ["Hash", "Symbol", "Side", "Type", "Qty", "Price", "Leverage", "Status"],
+          result.data.map((o: any) => [
+            o.hash,
+            o.symbol,
+            o.side,
+            o.orderType,
+            formatWei(o.quantity),
+            formatWei(o.price),
+            formatWei(o.leverage) + "x",
+            o.status,
+          ])
+        );
       } catch (e) {
         handleError(e);
       }

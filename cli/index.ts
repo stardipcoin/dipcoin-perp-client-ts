@@ -5,7 +5,6 @@ import { registerPositionCommands } from "./commands/position";
 import { registerMarketCommands } from "./commands/market";
 import { registerHistoryCommands } from "./commands/history";
 import { registerVaultCommands } from "./commands/vault";
-import { registerOrdersCommand } from "./commands/orders";
 import { registerBalanceCommand } from "./commands/balance";
 import { registerReferralCommands } from "./commands/point";
 import { readFileSync } from "fs";
@@ -41,7 +40,6 @@ registerPositionCommands(program);
 registerMarketCommands(program);
 registerHistoryCommands(program);
 registerVaultCommands(program);
-registerOrdersCommand(program);
 registerBalanceCommand(program);
 registerReferralCommands(program);
 

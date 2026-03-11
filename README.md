@@ -117,6 +117,10 @@ dipcoin-cli trade buy BTC 0 10x --qty 0.01
 # Reduce-only (for closing)
 dipcoin-cli trade sell BTC 0 10x --qty 0.01 --reduce-only
 
+# List open orders
+dipcoin-cli trade orders
+dipcoin-cli trade orders --symbol BTC-PERP
+
 # Cancel orders
 dipcoin-cli trade cancel <symbol> <hash1> [hash2...]
 ```
@@ -153,12 +157,12 @@ dipcoin-cli position margin remove <symbol> <amount>
 
 The `--side` is the **closing side**: use `sell` for long positions, `buy` for short.
 
-### orders
+### trade orders
 
 ```bash
-dipcoin-cli orders                          # List all open orders
-dipcoin-cli orders --symbol BTC-PERP        # Filter by symbol
-dipcoin-cli orders --vault <address>        # Filter by vault
+dipcoin-cli trade orders                          # List all open orders
+dipcoin-cli trade orders --symbol BTC-PERP        # Filter by symbol
+dipcoin-cli trade orders --vault <address>        # Filter by vault
 ```
 
 ### vault

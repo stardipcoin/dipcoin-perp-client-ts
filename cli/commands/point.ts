@@ -83,15 +83,15 @@ export function registerReferralCommands(program: Command) {
 
         if (isJson(program)) return printJson(result.data);
 
-        const items = result.data?.items || result.data || [];
+        const items = result.data?.data || result.data?.items || [];
         if (!Array.isArray(items) || !items.length) return console.log("No invitees found.");
 
         printTable(
-          ["Address", "Points", "Volume"],
+          ["Address", "Points", "Joined"],
           items.map((inv: any) => [
-            inv.address || inv.userAddress || "-",
-            inv.points || inv.totalPoints || "-",
-            inv.volume || inv.tradingVolume || "-",
+            inv.user || inv.address || inv.userAddress || "-",
+            inv.basePoints ?? inv.points ?? "-",
+            inv.joinedTime || "-",
           ])
         );
       } catch (e) {
