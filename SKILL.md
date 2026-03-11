@@ -215,6 +215,11 @@ dipcoin-cli vault create --name "My Vault" --trader <address> --max-cap 10000 \
 # List your vaults
 dipcoin-cli --json vault list
 
+# List all public vaults (with pagination and filter)
+dipcoin-cli --json vault list-all                             # page 1, 10 per page
+dipcoin-cli --json vault list-all --page 2 --page-size 20    # page 2, 20 per page
+dipcoin-cli --json vault list-all --filter Leading            # Filter: All, Leading, Newest, HotDeposit
+
 # Vault details
 dipcoin-cli --json vault info <vaultId>
 

@@ -170,6 +170,9 @@ dipcoin-cli vault create --name <name> --trader <address> --max-cap <usdc> \
   --min-deposit <usdc> --creator-share <pct> --profit-share <pct> --initial <usdc>
 
 dipcoin-cli vault list                      # List vaults created by wallet
+dipcoin-cli vault list-all                  # List all public vaults (page 1, 10 per page)
+dipcoin-cli vault list-all --page 2 --page-size 20
+dipcoin-cli vault list-all --filter Leading # Filter: All, Leading, Newest, HotDeposit
 dipcoin-cli vault info <vaultId>            # Vault details
 dipcoin-cli vault deposit <vaultId> <amount>
 dipcoin-cli vault withdraw <vaultId> <shares>
