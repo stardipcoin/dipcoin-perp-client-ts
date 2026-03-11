@@ -7,6 +7,7 @@ import { registerHistoryCommands } from "./commands/history";
 import { registerVaultCommands } from "./commands/vault";
 import { registerOrdersCommand } from "./commands/orders";
 import { registerBalanceCommand } from "./commands/balance";
+import { registerReferralCommands } from "./commands/point";
 import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -42,6 +43,7 @@ registerHistoryCommands(program);
 registerVaultCommands(program);
 registerOrdersCommand(program);
 registerBalanceCommand(program);
+registerReferralCommands(program);
 
 program.parseAsync(process.argv).catch((err) => {
   console.error("Error:", err.message || err);

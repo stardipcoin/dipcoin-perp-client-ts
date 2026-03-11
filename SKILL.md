@@ -239,6 +239,23 @@ dipcoin-cli vault remove <vaultId>
 dipcoin-cli vault claim <vaultId>
 ```
 
+### Referral
+
+```bash
+# Bind a referral code (e.g. bind with code "trump")
+dipcoin-cli referral bind trump
+
+# Get your referral link and invite code
+dipcoin-cli --json referral link
+
+# Change your referral code
+dipcoin-cli referral change-code mycode
+
+# List your invitees (with pagination)
+dipcoin-cli --json referral invitees
+dipcoin-cli --json referral invitees --page 2 --page-size 20
+```
+
 ## Typical Agent Workflow
 
 Here is a recommended step-by-step workflow for an agent:

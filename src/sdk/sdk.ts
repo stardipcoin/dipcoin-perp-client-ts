@@ -2797,6 +2797,170 @@ export class DipCoinPerpSDK {
   /**
    * List all public vaults.
    */
+  // ─── Points & Referral ────────────────────────────────────────────
+
+  /**
+   * Force re-onboard by clearing cached JWT and calling /api/authorize again.
+   * The points service requires the user to be registered via authorize.
+   */
+  private async forceOnboard(): Promise<boolean> {
+    this.clearAuth();
+    const auth = await this.authenticate();
+    if (!auth.status) return false;
+    // Calling getAccountInfo triggers user registration in the points system
+    await this.httpClient.get(API_ENDPOINTS.GET_ACCOUNT_INFO);
+    return true;
+  }
+
+  /**
+   * Check if an API response indicates the user is not registered in the points system.
+   */
+  private isUserNotFoundResponse(response: { code?: number; message?: string }): boolean {
+    return (
+      response.code !== 200 &&
+      typeof response.message === "string" &&
+      response.message.toLowerCase().includes("user address not found")
+    );
+  }
+
+  /**
+   * Join a team via referral code
+   * @param referralCode The referral code to bind
+   */
+  async joinTeam(referralCode: string): Promise<SDKResponse<any>> {
+    try {
+      const authResult = await this.authenticate();
+      if (!authResult.status) {
+        return { status: false, error: authResult.error || "Authentication failed" };
+      }
+
+      let response = await this.httpClient.postForm<any>(API_ENDPOINTS.POINT_JOIN_TEAM, {
+        referralCode,
+      });
+
+      if (response.code === 1000 || this.isUserNotFoundResponse(response)) {
+        if (await this.forceOnboard()) {
+          response = await this.httpClient.postForm<any>(API_ENDPOINTS.POINT_JOIN_TEAM, {
+            referralCode,
+          });
+        } else {
+          return { status: false, error: "Authentication failed" };
+        }
+      }
+
+      if (response.code === 200) {
+        return { status: true, data: response.data };
+      }
+      return { status: false, error: response.message || "Failed to join team" };
+    } catch (error) {
+      return { status: false, error: formatError(error) };
+    }
+  }
+
+  /**
+   * Get referral link info for the current wallet
+   */
+  async getReferralLink(): Promise<SDKResponse<any>> {
+    try {
+      const authResult = await this.authenticate();
+      if (!authResult.status) {
+        return { status: false, error: authResult.error || "Authentication failed" };
+      }
+
+      let response = await this.httpClient.get<any>(API_ENDPOINTS.POINT_REFERRAL_LINK);
+
+      if (response.code === 1000 || this.isUserNotFoundResponse(response)) {
+        if (await this.forceOnboard()) {
+          response = await this.httpClient.get<any>(API_ENDPOINTS.POINT_REFERRAL_LINK);
+        } else {
+          return { status: false, error: "Authentication failed" };
+        }
+      }
+
+      if (response.code === 200) {
+        return { status: true, data: response.data };
+      }
+      return { status: false, error: response.message || "Failed to get referral link" };
+    } catch (error) {
+      return { status: false, error: formatError(error) };
+    }
+  }
+
+  /**
+   * Change referral code
+   * @param referralCode New referral code
+   */
+  async changeReferralCode(referralCode: string): Promise<SDKResponse<any>> {
+    try {
+      const authResult = await this.authenticate();
+      if (!authResult.status) {
+        return { status: false, error: authResult.error || "Authentication failed" };
+      }
+
+      let response = await this.httpClient.postForm<any>(API_ENDPOINTS.POINT_REFERRAL_CHANGE, {
+        referralCode,
+      });
+
+      if (response.code === 1000 || this.isUserNotFoundResponse(response)) {
+        if (await this.forceOnboard()) {
+          response = await this.httpClient.postForm<any>(API_ENDPOINTS.POINT_REFERRAL_CHANGE, {
+            referralCode,
+          });
+        } else {
+          return { status: false, error: "Authentication failed" };
+        }
+      }
+
+      if (response.code === 200) {
+        return { status: true, data: response.data };
+      }
+      return { status: false, error: response.message || "Failed to change referral code" };
+    } catch (error) {
+      return { status: false, error: formatError(error) };
+    }
+  }
+
+  /**
+   * Get list of invitees
+   * @param params Pagination parameters
+   */
+  async getInvitees(params?: {
+    page?: number;
+    pageSize?: number;
+  }): Promise<SDKResponse<any>> {
+    try {
+      const authResult = await this.authenticate();
+      if (!authResult.status) {
+        return { status: false, error: authResult.error || "Authentication failed" };
+      }
+
+      const queryParams: Record<string, any> = {};
+      if (params?.page) queryParams.pageNum = params.page;
+      if (params?.pageSize) queryParams.pageSize = params.pageSize;
+
+      let response = await this.httpClient.get<any>(API_ENDPOINTS.POINT_REFERRAL_INVITEES, {
+        params: queryParams,
+      });
+
+      if (response.code === 1000 || this.isUserNotFoundResponse(response)) {
+        if (await this.forceOnboard()) {
+          response = await this.httpClient.get<any>(API_ENDPOINTS.POINT_REFERRAL_INVITEES, {
+            params: queryParams,
+          });
+        } else {
+          return { status: false, error: "Authentication failed" };
+        }
+      }
+
+      if (response.code === 200) {
+        return { status: true, data: response.data };
+      }
+      return { status: false, error: response.message || "Failed to get invitees" };
+    } catch (error) {
+      return { status: false, error: formatError(error) };
+    }
+  }
+
   async listPublicVaults(): Promise<SDKResponse<any[]>> {
     try {
       const response = await this.httpClient.get<any[]>(API_ENDPOINTS.VAULTS_PUBLIC);

@@ -9,10 +9,10 @@ import { fromExportedKeypair } from "../../src/utils";
 const globalEnv = path.join(os.homedir(), ".config", "dipcoin", "env");
 const localEnv = path.resolve(process.cwd(), ".env");
 
-if (fs.existsSync(globalEnv)) {
-  dotenv.config({ path: globalEnv });
-} else if (fs.existsSync(localEnv)) {
+if (fs.existsSync(localEnv)) {
   dotenv.config({ path: localEnv });
+} else if (fs.existsSync(globalEnv)) {
+  dotenv.config({ path: globalEnv });
 }
 
 import { initDipCoinPerpSDK, DipCoinPerpSDK } from "../../src/sdk";

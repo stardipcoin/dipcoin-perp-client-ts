@@ -188,6 +188,18 @@ dipcoin-cli vault set-min-deposit <vaultId> <amount>
 dipcoin-cli vault set-auto-close <vaultId> [--disable]
 ```
 
+### referral
+
+Referral operations:
+
+```bash
+dipcoin-cli referral bind <code>               # Bind a referral code
+dipcoin-cli referral link                      # Get your referral link and invite code
+dipcoin-cli referral change-code <code>        # Change your referral code
+dipcoin-cli referral invitees                  # List your invitees
+dipcoin-cli referral invitees --page 2 --page-size 20
+```
+
 ### history
 
 ```bash

@@ -30,6 +30,11 @@ export const API_ENDPOINTS = {
   ORACLE: "/api/perp-market-api/oracle",
   VAULTS_BY_CREATOR: "/api/perp-vault-api/public/vaults/by-creator",
   VAULTS_PUBLIC: "/api/perp-vault-api/public/vaults",
+  // Points & Referral
+  POINT_JOIN_TEAM: "/api/dipcoin-point/team/join",
+  POINT_REFERRAL_LINK: "/api/dipcoin-point/referral/link",
+  POINT_REFERRAL_CHANGE: "/api/dipcoin-point/referral/change",
+  POINT_REFERRAL_INVITEES: "/api/dipcoin-point/referral/invitee",
 } as const;
 
 /**
@@ -61,4 +66,3 @@ export const PYTH_CONFIG = {
     priceServiceUrl: "https://hermes-beta.pyth.network",
   },
 } as const;
-

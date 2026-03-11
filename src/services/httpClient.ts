@@ -19,8 +19,11 @@ export class HttpClient {
     this.baseURL = baseURL;
   }
 
-  private isPerpTradeApiUrl(url?: string): boolean {
-    return url?.startsWith("/api/perp-trade-api") ?? false;
+  private isAuthenticatedUrl(url?: string): boolean {
+    return (
+      (url?.startsWith("/api/perp-trade-api") ?? false) ||
+      (url?.startsWith("/api/dipcoin-point") ?? false)
+    );
   }
 
   private isPublicEndpoint(url?: string): boolean {
@@ -30,7 +33,7 @@ export class HttpClient {
   private buildHeaders(url: string, contentType: string = "application/json"): Record<string, string> {
     const headers: Record<string, string> = { "Content-Type": contentType };
 
-    if (this.isPerpTradeApiUrl(url)) {
+    if (this.isAuthenticatedUrl(url)) {
       if (this.walletAddress) {
         headers["X-Wallet-Address"] = this.walletAddress;
       }
