@@ -29,6 +29,7 @@ export const API_ENDPOINTS = {
   BALANCE_CHANGES: "/api/perp-trade-api/history/balance-changes",
   ORACLE: "/api/perp-market-api/oracle",
   VAULTS_BY_CREATOR: "/api/perp-vault-api/public/vaults/by-creator",
+  VAULTS_PUBLIC: "/api/perp-vault-api/public/vaults",
 } as const;
 
 /**

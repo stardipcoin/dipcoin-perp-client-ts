@@ -2793,6 +2793,21 @@ export class DipCoinPerpSDK {
       return { status: false, error: formatError(error) };
     }
   }
+
+  /**
+   * List all public vaults.
+   */
+  async listPublicVaults(): Promise<SDKResponse<any[]>> {
+    try {
+      const response = await this.httpClient.get<any[]>(API_ENDPOINTS.VAULTS_PUBLIC);
+      if (response.code === 200) {
+        return { status: true, data: response.data || [] };
+      }
+      return { status: false, error: response.message || "Failed to list public vaults" };
+    } catch (error) {
+      return { status: false, error: formatError(error) };
+    }
+  }
 }
 
 /**

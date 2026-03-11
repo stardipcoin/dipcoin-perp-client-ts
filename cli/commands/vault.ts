@@ -97,6 +97,45 @@ export function registerVaultCommands(program: Command) {
       }
     });
 
+  // === vault list-all ===
+  vault
+    .command("list-all")
+    .description("List all public vaults")
+    .action(async () => {
+      try {
+        const sdk = getSDK();
+        const result = await sdk.listPublicVaults();
+        if (!result.status) return handleError(result.error);
+
+        if (isJson(program)) return printJson(result.data);
+
+        if (!result.data?.length) return console.log("No vaults found.");
+
+        printTable(
+          ["Name", "Vault ID", "TVL (USDC)", "APR (%)", "Depositors", "Age (d)", "Deposit", "Status"],
+          result.data.map((v: any) => {
+            const tvl = new BigNumber(v.tvl || "0").dividedBy(new BigNumber(10).pow(18)).toFixed(2);
+            const apr = new BigNumber(v.apr || "0").dividedBy(new BigNumber(10).pow(14)).toFixed(2);
+            const depositors = new BigNumber(v.currentDepositors || "0")
+              .dividedBy(new BigNumber(10).pow(18))
+              .toFixed(0);
+            return [
+              v.name || "-",
+              v.vaultId,
+              tvl,
+              apr,
+              depositors,
+              String(v.age ?? "-"),
+              v.depositStatus ? "Open" : "Closed",
+              v.closedAt > 0 ? "Closed" : "Active",
+            ];
+          })
+        );
+      } catch (e) {
+        handleError(e);
+      }
+    });
+
   // === vault info ===
   vault
     .command("info")
