@@ -101,19 +101,48 @@ export function registerVaultCommands(program: Command) {
   vault
     .command("list-all")
     .description("List all public vaults")
-    .action(async () => {
+    .option("--page <num>", "Page number (default: 1)", "1")
+    .option("--page-size <num>", "Items per page (default: 10)", "10")
+    .option("--filter <type>", "Filter type: All, Leading, Newest, HotDeposit (default: All)", "All")
+    .action(async (opts) => {
       try {
         const sdk = getSDK();
         const result = await sdk.listPublicVaults();
         if (!result.status) return handleError(result.error);
 
-        if (isJson(program)) return printJson(result.data);
+        let vaults: any[] = result.data || [];
+        if (!vaults.length) return isJson(program) ? printJson({ records: [], total: 0, pageNum: 1, pageSize: 10 }) : console.log("No vaults found.");
 
-        if (!result.data?.length) return console.log("No vaults found.");
+        // Client-side filter
+        const filter = opts.filter;
+        if (filter && filter !== "All") {
+          if (filter === "Leading") {
+            vaults = vaults.filter((v: any) => new BigNumber(v.tvl || "0").gt(0));
+          } else if (filter === "Newest") {
+            vaults = [...vaults].sort((a: any, b: any) => (b.age ?? 0) - (a.age ?? 0)).reverse();
+          } else if (filter === "HotDeposit") {
+            vaults = [...vaults].sort((a: any, b: any) => {
+              const da = new BigNumber(a.currentDepositors || "0");
+              const db = new BigNumber(b.currentDepositors || "0");
+              return db.minus(da).toNumber();
+            });
+          }
+        }
+
+        const pageNum = Math.max(1, parseInt(opts.page, 10) || 1);
+        const pageSize = Math.max(1, parseInt(opts.pageSize, 10) || 10);
+        const total = vaults.length;
+        const totalPages = Math.ceil(total / pageSize);
+        const start = (pageNum - 1) * pageSize;
+        const pageVaults = vaults.slice(start, start + pageSize);
+
+        if (isJson(program)) return printJson({ records: pageVaults, total, pageNum, pageSize, totalPages });
+
+        if (!pageVaults.length) return console.log(`No vaults on page ${pageNum}. Total: ${total}, pages: ${totalPages}.`);
 
         printTable(
           ["Name", "Vault ID", "TVL (USDC)", "APR (%)", "Depositors", "Age (d)", "Deposit", "Status"],
-          result.data.map((v: any) => {
+          pageVaults.map((v: any) => {
             const tvl = new BigNumber(v.tvl || "0").dividedBy(new BigNumber(10).pow(18)).toFixed(2);
             const apr = new BigNumber(v.apr || "0").dividedBy(new BigNumber(10).pow(14)).toFixed(2);
             const depositors = new BigNumber(v.currentDepositors || "0")
@@ -131,6 +160,7 @@ export function registerVaultCommands(program: Command) {
             ];
           })
         );
+        console.log(`\nPage ${pageNum}/${totalPages} (total: ${total}, filter: ${filter})`);
       } catch (e) {
         handleError(e);
       }
