@@ -96,7 +96,7 @@ function toBigIntStr(value: number, decimals: number): string {
 export function buildAddMarginTx(
   deployment: any,
   args: {
-    amount: number;
+    amount: number | string;
     account?: string;
     perpID?: string;
     subAccountsMapID?: string;
@@ -132,7 +132,7 @@ export function buildAddMarginTx(
 export function buildRemoveMarginTx(
   deployment: any,
   args: {
-    amount: number;
+    amount: number | string;
     account?: string;
     perpID?: string;
     subAccountsMapID?: string;

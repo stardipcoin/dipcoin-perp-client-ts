@@ -227,9 +227,14 @@ dipcoin-cli --json vault list-all --filter Leading            # Filter: All, Lea
 # Vault details
 dipcoin-cli --json vault info <vaultId>
 
+# Check your position in a vault (shares, estimated USDC value)
+dipcoin-cli --json vault position <vaultId>
+dipcoin-cli --json vault position <vaultId> --address <addr>  # query another address
+
 # Deposit/withdraw from vault
 dipcoin-cli vault deposit <vaultId> <amount>
 dipcoin-cli vault withdraw <vaultId> <shares>
+dipcoin-cli vault withdraw <vaultId> --all   # withdraw all shares
 
 # Manage vault
 dipcoin-cli vault set-trader <vaultId> <address>

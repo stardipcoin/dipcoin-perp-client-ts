@@ -2006,7 +2006,7 @@ export class DipCoinPerpSDK {
     params: MarginAdjustmentParams,
     action: "add" | "remove"
   ): {
-    amount: number;
+    amount: string;
     account: string;
     perpID?: string;
     market?: string;
@@ -2029,10 +2029,9 @@ export class DipCoinPerpSDK {
       throw new Error(`Amount must be greater than zero to ${action} margin`);
     }
 
-    const amountNumber = new BigNumber(amount).toNumber();
-    if (!Number.isFinite(amountNumber)) {
-      throw new Error("Amount is too large to represent as a number");
-    }
+    // Convert human-readable USDC amount to 18-decimal wei format for on-chain
+    // The contract divides by 1e9 (base_uint) to get 9-decimal internal representation
+    const amountWei = formatNormalToWei(amount);
 
     const marketSymbolInput = market || symbol;
     const marketSymbol = marketSymbolInput ? marketSymbolInput.toUpperCase() : undefined;
@@ -2044,7 +2043,7 @@ export class DipCoinPerpSDK {
     }
 
     return {
-      amount: amountNumber,
+      amount: amountWei,
       account: accountAddress || this.walletAddress,
       market: marketSymbol,
       perpID: resolvedPerpId,
@@ -2418,8 +2417,22 @@ export class DipCoinPerpSDK {
 
     const symbols = markets && markets.length > 0 ? markets : this.getMarketSymbols();
 
-    // On testnet, prepend price oracle updates so PriceInfoObjects are fresh
-    if (this.options.network === "testnet") {
+    if (this.options.network === "mainnet") {
+      // On mainnet, use Pyth to fetch fresh price VAAs and update on-chain oracles
+      this.ensurePythClients();
+      if (this.priceServiceConnection && this.pythClient) {
+        const priceIds: string[] = [];
+        for (const sym of symbols) {
+          const feedId = await this.resolvePriceFeedId(sym);
+          if (feedId) priceIds.push(feedId);
+        }
+        if (priceIds.length > 0) {
+          const priceUpdateData = await this.priceServiceConnection.getPriceFeedsUpdateData(priceIds);
+          await this.pythClient.updatePriceFeeds(t, priceUpdateData, priceIds);
+        }
+      }
+    } else {
+      // On testnet, prepend price oracle updates so PriceInfoObjects are fresh
       const prices: { price: number; confidence?: string; market?: string }[] = [];
       for (const sym of symbols) {
         try {
@@ -2533,6 +2546,24 @@ export class DipCoinPerpSDK {
    */
   async requestWithdrawFromVault(args: { vaultID: string; shares: number }) {
     const tx = new Transaction();
+
+    // On mainnet, update Pyth oracle prices before withdraw (contract checks freshness)
+    if (this.options.network === "mainnet") {
+      this.ensurePythClients();
+      if (this.priceServiceConnection && this.pythClient) {
+        const symbols = this.getMarketSymbols();
+        const priceIds: string[] = [];
+        for (const sym of symbols) {
+          const feedId = await this.resolvePriceFeedId(sym);
+          if (feedId) priceIds.push(feedId);
+        }
+        if (priceIds.length > 0) {
+          const priceUpdateData = await this.priceServiceConnection.getPriceFeedsUpdateData(priceIds);
+          await this.pythClient.updatePriceFeeds(tx, priceUpdateData, priceIds);
+        }
+      }
+    }
+
     const vaultPkg = this.getVaultPackageId();
     tx.moveCall({
       target: `${vaultPkg}::vault::request_withdraw`,
@@ -2759,6 +2790,19 @@ export class DipCoinPerpSDK {
   /**
    * Read vault object data from chain
    */
+  /**
+   * Get the vault lock period from VaultConfig (on-chain).
+   */
+  async getVaultLockPeriodMs(): Promise<number> {
+    const configId = this.getVaultConfigId();
+    const obj = await this.suiClient.getObject({
+      id: configId,
+      options: { showContent: true },
+    });
+    const fields = (obj.data?.content as any)?.fields;
+    return Number(fields?.lock_period_ms || 86400000);
+  }
+
   async getVaultInfo(vaultID: string): Promise<SDKResponse<any>> {
     try {
       const obj = await this.suiClient.getObject({
@@ -2769,6 +2813,51 @@ export class DipCoinPerpSDK {
         return { status: false, error: "Vault object not found or not a Move object" };
       }
       return { status: true, data: (obj.data.content as any).fields };
+    } catch (error) {
+      return { status: false, error: formatError(error) };
+    }
+  }
+
+  /**
+   * Get a user's position (shares) in a vault by querying the on-chain user_positions table.
+   */
+  async getVaultUserPosition(
+    vaultID: string,
+    userAddress?: string,
+  ): Promise<SDKResponse<any>> {
+    try {
+      const address = userAddress || this.walletAddress;
+      // First get vault object to find user_positions table ID
+      const vaultResult = await this.getVaultInfo(vaultID);
+      if (!vaultResult.status || !vaultResult.data) {
+        return { status: false, error: vaultResult.error || "Failed to get vault info" };
+      }
+      const tableId = vaultResult.data.user_positions?.fields?.id?.id;
+      if (!tableId) {
+        return { status: false, error: "Vault has no user_positions table" };
+      }
+      // Query dynamic field for user's position
+      const result = await this.suiClient.getDynamicFieldObject({
+        parentId: tableId,
+        name: { type: "address", value: address },
+      });
+      if (!result.data?.content || result.data.content.dataType !== "moveObject") {
+        return { status: false, error: "No position found for this address in the vault" };
+      }
+      const fields = (result.data.content as any).fields?.value?.fields;
+      if (!fields) {
+        return { status: false, error: "Failed to parse position data" };
+      }
+      return {
+        status: true,
+        data: {
+          shares: fields.shares,
+          averagePrice: fields.average_price,
+          lastDepositTimeMs: fields.last_deposit_time_ms,
+          vaultTotalShares: vaultResult.data.total_shares,
+          lastSharePrice: vaultResult.data.last_share_price,
+        },
+      };
     } catch (error) {
       return { status: false, error: formatError(error) };
     }

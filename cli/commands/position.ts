@@ -120,6 +120,7 @@ export function registerPositionCommands(program: Command) {
     .action(async (symbol, amount) => {
       try {
         const sdk = getSDK();
+        symbol = normalizeSymbol(symbol);
         const tx = await sdk.addMargin({ symbol, amount: Number(amount) });
         if (isJson(program)) return printJson({ digest: tx?.digest, status: "ok" });
         console.log(`Added ${amount} margin to ${symbol}. Tx: ${tx?.digest || JSON.stringify(tx)}`);
@@ -136,6 +137,7 @@ export function registerPositionCommands(program: Command) {
     .action(async (symbol, amount) => {
       try {
         const sdk = getSDK();
+        symbol = normalizeSymbol(symbol);
         const tx = await sdk.removeMargin({ symbol, amount: Number(amount) });
         if (isJson(program)) return printJson({ digest: tx?.digest, status: "ok" });
         console.log(

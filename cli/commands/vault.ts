@@ -3,16 +3,21 @@ import { getSDK } from "../utils/sdk-factory";
 import { isJson, printJson, printTable, handleError, printTxResult as printTxResultShared } from "../utils/output";
 import BigNumber from "bignumber.js";
 
-const USDC_DECIMALS = 6;
+/**
+ * On-chain vault contract stores values with 9-decimal precision.
+ * The API server multiplies by 10^9 to convert to 18-decimal (exchange convention).
+ */
+const VAULT_DECIMALS = 9;
 
 /**
- * Format a USDC atomic value (6 decimals) to human-readable.
+ * Format an on-chain vault value (9 decimals) to human-readable.
  */
-function formatUsdc(value: string | number | null | undefined): string {
+function formatWeiValue(value: string | number | null | undefined): string {
   if (value === undefined || value === null || value === "") return "0";
   const bn = new BigNumber(String(value));
   if (bn.isNaN()) return "0";
-  return bn.dividedBy(new BigNumber(10).pow(USDC_DECIMALS)).toFixed(USDC_DECIMALS);
+  const num = bn.dividedBy(new BigNumber(10).pow(VAULT_DECIMALS));
+  return num.lt(1) ? num.toFixed(6) : num.toFixed(2);
 }
 
 /**
@@ -188,13 +193,59 @@ export function registerVaultCommands(program: Command) {
             ["Creator", d.creator || "-"],
             ["Trader", d.trader || "-"],
             ["Deposit Status", d.deposit_status === true || d.deposit_status === "true" ? "Open" : "Closed"],
-            ["Total Shares", formatUsdc(d.total_shares)],
-            ["Max Cap", formatUsdc(d.max_cap)],
-            ["Min Deposit", formatUsdc(d.min_deposit_amount)],
+            ["Total Shares", formatWeiValue(d.total_shares)],
+            ["Max Cap", formatWeiValue(d.max_cap)],
+            ["Min Deposit", formatWeiValue(d.min_deposit_amount)],
             ["Creator Min Share Ratio", formatRatio(d.creator_minimum_share_ratio)],
             ["Creator Profit Share Ratio", formatRatio(d.creator_profit_share_ratio)],
             ["Auto Close on Withdraw", String(d.auto_close_on_withdraw ?? "-")],
           ]
+        );
+      } catch (e) {
+        handleError(e);
+      }
+    });
+
+  // === vault position ===
+  vault
+    .command("position")
+    .description("Show your shares in a vault (e.g. vault position <vaultId>)")
+    .argument("<vaultId>", "Vault object ID")
+    .option("--address <addr>", "Query a specific address (default: current wallet)")
+    .action(async (vaultId, opts) => {
+      try {
+        const sdk = getSDK();
+        const result = await sdk.getVaultUserPosition(vaultId, opts.address);
+        if (!result.status || !result.data) return handleError(result.error);
+
+        if (isJson(program)) return printJson(result.data);
+
+        const d = result.data;
+        const shares = formatWeiValue(d.shares);
+        const totalShares = formatWeiValue(d.vaultTotalShares);
+        const sharePrice = formatWeiValue(d.lastSharePrice);
+        const avgPrice = formatWeiValue(d.averagePrice);
+        const estimatedValue = new BigNumber(d.shares || "0")
+          .multipliedBy(new BigNumber(d.lastSharePrice || "0"))
+          .dividedBy(new BigNumber(10).pow(VAULT_DECIMALS * 2))
+          .toFixed(2);
+        const depositTime = d.lastDepositTimeMs
+          ? new Date(Number(d.lastDepositTimeMs)).toISOString()
+          : "-";
+
+        printTable(
+          ["Field", "Value"],
+          [
+            ["Your Shares", shares],
+            ["Total Vault Shares", totalShares],
+            ["Share Price", sharePrice],
+            ["Avg Entry Price", avgPrice],
+            ["Estimated Value (USDC)", estimatedValue],
+            ["Last Deposit", depositTime],
+          ]
+        );
+        console.log(
+          `\nTo withdraw all shares, run: vault withdraw ${vaultId} --all`
         );
       } catch (e) {
         handleError(e);
@@ -221,15 +272,53 @@ export function registerVaultCommands(program: Command) {
   // === vault withdraw ===
   vault
     .command("withdraw")
-    .description("Request withdrawal from vault (e.g. vault withdraw <vaultId> <shares>)")
+    .description("Request withdrawal from vault (e.g. vault withdraw <vaultId> [shares])")
     .argument("<vaultId>", "Vault object ID")
-    .argument("<shares>", "Number of shares to withdraw")
-    .action(async (vaultId, shares) => {
+    .argument("[shares]", "Number of shares to withdraw (omit if using --all)")
+    .option("--all", "Withdraw all shares")
+    .action(async (vaultId, shares, opts) => {
       try {
         const sdk = getSDK();
-        console.log(`Requesting withdrawal of ${shares} shares from vault ${vaultId}...`);
-        const tx = await sdk.requestWithdrawFromVault({ vaultID: vaultId, shares: Number(shares) });
-        printTxResultShared(program, tx, `Withdrawal request submitted for ${shares} shares.`);
+
+        // Always fetch user position to check lock period
+        const pos = await sdk.getVaultUserPosition(vaultId);
+        if (!pos.status || !pos.data?.shares) {
+          return handleError(pos.error || "No position found in this vault");
+        }
+
+        // Check lock period (24h by default)
+        if (pos.data.lastDepositTimeMs) {
+          const lockMs = await sdk.getVaultLockPeriodMs();
+          const unlockAt = Number(pos.data.lastDepositTimeMs) + lockMs;
+          const now = Date.now();
+          if (now < unlockAt) {
+            const remainMs = unlockAt - now;
+            const hours = Math.floor(remainMs / 3600000);
+            const mins = Math.ceil((remainMs % 3600000) / 60000);
+            const unlockTime = new Date(unlockAt).toLocaleString();
+            return handleError(
+              `Withdrawal locked: must wait ${hours}h ${mins}m after last deposit.\n` +
+                `  Last deposit:  ${new Date(Number(pos.data.lastDepositTimeMs)).toLocaleString()}\n` +
+                `  Unlocks at:    ${unlockTime}`
+            );
+          }
+        }
+
+        let withdrawShares: number;
+        if (opts.all) {
+          // Convert from 9-decimal on-chain value to human-readable for the SDK
+          withdrawShares = new BigNumber(pos.data.shares)
+            .dividedBy(new BigNumber(10).pow(VAULT_DECIMALS))
+            .toNumber();
+          console.log(`Withdrawing all shares (${withdrawShares})...`);
+        } else if (shares) {
+          withdrawShares = Number(shares);
+        } else {
+          return handleError("Provide <shares> amount or use --all to withdraw everything");
+        }
+        console.log(`Requesting withdrawal of ${withdrawShares} shares from vault ${vaultId}...`);
+        const tx = await sdk.requestWithdrawFromVault({ vaultID: vaultId, shares: withdrawShares });
+        printTxResultShared(program, tx, `Withdrawal request submitted for ${withdrawShares} shares.`);
       } catch (e) {
         handleError(e);
       }

@@ -178,8 +178,11 @@ dipcoin-cli vault list-all                  # List all public vaults (page 1, 10
 dipcoin-cli vault list-all --page 2 --page-size 20
 dipcoin-cli vault list-all --filter Leading # Filter: All, Leading, Newest, HotDeposit
 dipcoin-cli vault info <vaultId>            # Vault details
+dipcoin-cli vault position <vaultId>       # Your shares & estimated value
+dipcoin-cli vault position <vaultId> --address <addr>  # Query another address
 dipcoin-cli vault deposit <vaultId> <amount>
 dipcoin-cli vault withdraw <vaultId> <shares>
+dipcoin-cli vault withdraw <vaultId> --all # Withdraw all shares
 dipcoin-cli vault fill <vaultId> <requestIDs...> [--markets <ids>]
 dipcoin-cli vault close <vaultId> [--markets <ids>]
 dipcoin-cli vault remove <vaultId>

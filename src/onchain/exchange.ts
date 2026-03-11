@@ -110,7 +110,7 @@ export async function addMargin(
   suiClient: SuiClient,
   deployment: any,
   args: {
-    amount: number;
+    amount: number | string;
     account?: string;
     perpID?: string;
     subAccountsMapID?: string;
@@ -127,7 +127,7 @@ export async function removeMargin(
   suiClient: SuiClient,
   deployment: any,
   args: {
-    amount: number;
+    amount: number | string;
     account?: string;
     perpID?: string;
     subAccountsMapID?: string;
