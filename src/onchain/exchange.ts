@@ -10,6 +10,11 @@ import {
   buildAddMarginTx,
   buildRemoveMarginTx,
   buildSetSubAccountTx,
+  getPackageId,
+  getProtocolConfigId,
+  getBankId,
+  getTxIndexerId,
+  getCurrencyType,
   getPerpetualId,
   getPriceOracleObjectId,
 } from "./transaction-builder";
@@ -53,7 +58,41 @@ export async function depositToBank(
   args: { amount: string; accountAddress?: string; bankID?: string; gasBudget?: number },
   signer: Keypair
 ): Promise<SuiTransactionBlockResponse> {
-  const tx = buildDepositTx(deployment, args, undefined, args.gasBudget, signer.getPublicKey().toSuiAddress());
+  const sender = signer.getPublicKey().toSuiAddress();
+  const coinType = getCurrencyType(deployment);
+
+  // Fetch user's USDC coins to use for deposit (not SUI gas)
+  const coins = await suiClient.getCoins({ owner: sender, coinType });
+  if (!coins.data.length) throw new Error(`No ${coinType} coins found for ${sender}`);
+
+  const tx = new Transaction();
+  if (args.gasBudget) tx.setGasBudget(args.gasBudget);
+  tx.setSender(sender);
+
+  // Use first coin, merge others if needed to ensure sufficient balance
+  const primaryCoin = tx.object(coins.data[0].coinObjectId);
+  if (coins.data.length > 1) {
+    tx.mergeCoins(
+      primaryCoin,
+      coins.data.slice(1).map((c) => tx.object(c.coinObjectId))
+    );
+  }
+  const depositCoin = tx.splitCoins(primaryCoin, [BigInt(args.amount)]);
+
+  const packageId = getPackageId(deployment);
+  tx.moveCall({
+    target: `${packageId}::bank::deposit_v2`,
+    arguments: [
+      tx.object(getProtocolConfigId(deployment)),
+      tx.object(args.bankID || getBankId(deployment)),
+      tx.object(getTxIndexerId(deployment)),
+      tx.pure.address(args.accountAddress || sender),
+      tx.pure.u64(args.amount),
+      depositCoin,
+    ],
+    typeArguments: [coinType],
+  });
+
   return executeTxBlock(suiClient, tx, signer);
 }
 

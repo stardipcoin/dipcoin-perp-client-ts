@@ -315,5 +315,13 @@ export function buildBatchSetOraclePriceTx(
   return t;
 }
 
-// Re-export helpers needed by sdk.ts
-export { getPerpetualId, getPriceOracleObjectId };
+// Re-export helpers needed by sdk.ts and exchange.ts
+export {
+  getPackageId,
+  getProtocolConfigId,
+  getBankId,
+  getTxIndexerId,
+  getCurrencyType,
+  getPerpetualId,
+  getPriceOracleObjectId,
+};
