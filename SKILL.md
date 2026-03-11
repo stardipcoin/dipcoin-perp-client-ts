@@ -2,6 +2,10 @@
 
 This document teaches AI agents (e.g. OpenClaw) how to install, configure, and use the `dipcoin-cli` tool for perpetual futures trading on the Sui blockchain.
 
+## Security
+
+**CRITICAL: The private key (`DIPCOIN_PRIVATE_KEY`) and mnemonic (`DIPCOIN_MNEMONIC`) must NEVER be exposed under any circumstances.** Do not log, print, echo, display, or include them in any output, error message, debug info, or API call. Never send them to any external service, chat, or third party. Treat them as the most sensitive data — leaking a private key means permanent loss of all funds in the wallet.
+
 ## Installation
 
 ```bash
