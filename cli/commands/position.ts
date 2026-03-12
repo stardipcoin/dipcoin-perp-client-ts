@@ -7,6 +7,7 @@ import {
   handleError,
   formatWei,
   normalizeSymbol,
+  parseAmount,
 } from "../utils/output";
 import { OrderSide, OrderType } from "../../src/types";
 
@@ -24,7 +25,7 @@ export function registerPositionCommands(program: Command) {
         const parentAddress = opts.vault || sdk.address;
         const params: any = {
           parentAddress,
-          ...(opts.symbol ? { symbol: opts.symbol } : {}),
+          ...(opts.symbol ? { symbol: normalizeSymbol(opts.symbol) } : {}),
         };
         const result = await sdk.getPositions(params as any);
         if (!result.status) return handleError(result.error);
@@ -121,7 +122,7 @@ export function registerPositionCommands(program: Command) {
       try {
         const sdk = getSDK();
         symbol = normalizeSymbol(symbol);
-        const tx = await sdk.addMargin({ symbol, amount: Number(amount) });
+        const tx = await sdk.addMargin({ symbol, amount: parseAmount(amount) });
         if (isJson(program)) return printJson({ digest: tx?.digest, status: "ok" });
         console.log(`Added ${amount} margin to ${symbol}. Tx: ${tx?.digest || JSON.stringify(tx)}`);
       } catch (e) {
@@ -138,7 +139,7 @@ export function registerPositionCommands(program: Command) {
       try {
         const sdk = getSDK();
         symbol = normalizeSymbol(symbol);
-        const tx = await sdk.removeMargin({ symbol, amount: Number(amount) });
+        const tx = await sdk.removeMargin({ symbol, amount: parseAmount(amount) });
         if (isJson(program)) return printJson({ digest: tx?.digest, status: "ok" });
         console.log(
           `Removed ${amount} margin from ${symbol}. Tx: ${tx?.digest || JSON.stringify(tx)}`

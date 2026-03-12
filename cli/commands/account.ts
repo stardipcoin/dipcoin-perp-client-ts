@@ -7,6 +7,7 @@ import {
   handleError,
   formatWei,
   printTxResult,
+  parseAmount,
 } from "../utils/output";
 
 export function registerAccountCommands(program: Command) {
@@ -49,7 +50,7 @@ export function registerAccountCommands(program: Command) {
     .action(async (amount) => {
       try {
         const sdk = getSDK();
-        const tx = await sdk.depositToBank(Number(amount));
+        const tx = await sdk.depositToBank(parseAmount(amount));
         printTxResult(program, tx, `Deposit ${amount} USDC succeeded.`);
       } catch (e) {
         handleError(e);
@@ -63,7 +64,7 @@ export function registerAccountCommands(program: Command) {
     .action(async (amount) => {
       try {
         const sdk = getSDK();
-        const tx = await sdk.withdrawFromBank(Number(amount));
+        const tx = await sdk.withdrawFromBank(parseAmount(amount));
         printTxResult(program, tx, `Withdraw ${amount} USDC succeeded.`);
       } catch (e) {
         handleError(e);

@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { getSDK } from "../utils/sdk-factory";
-import { isJson, printJson, printTable, handleError, printTxResult as printTxResultShared } from "../utils/output";
+import { isJson, printJson, printTable, handleError, printTxResult as printTxResultShared, parseAmount } from "../utils/output";
 import BigNumber from "bignumber.js";
 
 /**
@@ -262,7 +262,7 @@ export function registerVaultCommands(program: Command) {
       try {
         const sdk = getSDK();
         console.log(`Depositing ${amount} USDC to vault ${vaultId}...`);
-        const tx = await sdk.depositToVault({ vaultID: vaultId, amount: Number(amount) });
+        const tx = await sdk.depositToVault({ vaultID: vaultId, amount: parseAmount(amount) });
         printTxResultShared(program, tx, `Deposited ${amount} USDC.`);
       } catch (e) {
         handleError(e);
@@ -457,7 +457,7 @@ export function registerVaultCommands(program: Command) {
     .action(async (vaultId, amount) => {
       try {
         const sdk = getSDK();
-        const tx = await sdk.setVaultMaxCap({ vaultID: vaultId, maxCap: Number(amount) });
+        const tx = await sdk.setVaultMaxCap({ vaultID: vaultId, maxCap: parseAmount(amount) });
         printTxResultShared(program, tx, `Max cap set to ${amount} USDC.`);
       } catch (e) {
         handleError(e);
@@ -473,7 +473,7 @@ export function registerVaultCommands(program: Command) {
     .action(async (vaultId, amount) => {
       try {
         const sdk = getSDK();
-        const tx = await sdk.setVaultMinDepositAmount({ vaultID: vaultId, minDepositAmount: Number(amount) });
+        const tx = await sdk.setVaultMinDepositAmount({ vaultID: vaultId, minDepositAmount: parseAmount(amount) });
         printTxResultShared(program, tx, `Min deposit set to ${amount} USDC.`);
       } catch (e) {
         handleError(e);

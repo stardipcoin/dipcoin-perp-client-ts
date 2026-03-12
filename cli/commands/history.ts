@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { getSDK } from "../utils/sdk-factory";
-import { isJson, printJson, printTable, handleError, formatWei } from "../utils/output";
+import { isJson, printJson, printTable, handleError, formatWei, normalizeSymbol } from "../utils/output";
 
 export function registerHistoryCommands(program: Command) {
   const history = program.command("history").description("History queries");
@@ -19,7 +19,7 @@ export function registerHistoryCommands(program: Command) {
         const sdk = getSDK();
         const parentAddress = opts.vault || sdk.address;
         const result = await sdk.getHistoryOrders({
-          ...(opts.symbol ? { symbol: opts.symbol } : {}),
+          ...(opts.symbol ? { symbol: normalizeSymbol(opts.symbol) } : {}),
           page: Number(opts.page),
           pageSize: Number(opts.size),
           parentAddress,
@@ -63,7 +63,7 @@ export function registerHistoryCommands(program: Command) {
         const sdk = getSDK();
         const parentAddress = opts.vault || sdk.address;
         const result = await sdk.getFundingSettlements({
-          ...(opts.symbol ? { symbol: opts.symbol } : {}),
+          ...(opts.symbol ? { symbol: normalizeSymbol(opts.symbol) } : {}),
           page: Number(opts.page),
           pageSize: Number(opts.size),
           parentAddress,

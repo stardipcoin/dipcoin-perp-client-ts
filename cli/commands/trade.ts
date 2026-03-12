@@ -73,9 +73,10 @@ async function placeOrder(
       quantity = stepped.toFixed(decimals);
       if (parseFloat(quantity) <= 0)
         return handleError(`USDC amount too small, minimum quantity step is ${stepSize}`);
-      console.log(
-        `USDC ${usdcAmount} -> quantity ${quantity} (price: ${price}, leverage: ${lev}x, step: ${stepSize})`
-      );
+      if (!isJson(program))
+        console.log(
+          `USDC ${usdcAmount} -> quantity ${quantity} (price: ${price}, leverage: ${lev}x, step: ${stepSize})`
+        );
     }
 
     const perpId = await sdk.getPerpetualID(symbol);
@@ -183,7 +184,7 @@ export function registerTradeCommands(program: Command) {
         const parentAddress = opts.vault || sdk.address;
         const params: any = {
           parentAddress,
-          ...(opts.symbol ? { symbol: opts.symbol } : {}),
+          ...(opts.symbol ? { symbol: normalizeSymbol(opts.symbol) } : {}),
         };
         const result = await sdk.getOpenOrders(params as any);
         if (!result.status) return handleError(result.error);

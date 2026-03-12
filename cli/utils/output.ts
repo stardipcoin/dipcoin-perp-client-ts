@@ -42,6 +42,17 @@ export function printTxResult(program: Command, tx: any, successMsg: string): vo
 }
 
 /**
+ * Parse and validate amount string. Exits with error if invalid.
+ */
+export function parseAmount(raw: string): number {
+  const val = Number(raw);
+  if (isNaN(val) || val <= 0) {
+    handleError(`Invalid amount: "${raw}". Must be a positive number.`);
+  }
+  return val;
+}
+
+/**
  * Normalize a symbol to include "-PERP" suffix if missing.
  */
 export function normalizeSymbol(s: string): string {

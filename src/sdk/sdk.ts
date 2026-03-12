@@ -671,8 +671,9 @@ export class DipCoinPerpSDK {
    */
   async adjustLeverage(params: AdjustLeverageParams): Promise<SDKResponse<OrderResponse>> {
     try {
-      const authResult = await this.authenticate();
+      const authResult = await this.authenticateForTrading();
       if (!authResult.status) {
+        this.restoreMainAuth();
         return {
           status: false,
           error: authResult.error || "Authentication failed",
@@ -702,13 +703,14 @@ export class DipCoinPerpSDK {
 
       if (response.code === 1000) {
         this.clearAuth();
-        const retryAuth = await this.authenticate();
+        const retryAuth = await this.authenticateForTrading();
         if (retryAuth.status) {
           response = await this.httpClient.post<OrderResponse>(
             API_ENDPOINTS.ADJUST_LEVERAGE,
             payload
           );
         } else {
+          this.restoreMainAuth();
           return {
             status: false,
             error: "Authentication expired and refresh failed",
@@ -716,6 +718,7 @@ export class DipCoinPerpSDK {
         }
       }
 
+      this.restoreMainAuth();
       if (response.code === 200) {
         return {
           status: true,
@@ -729,6 +732,7 @@ export class DipCoinPerpSDK {
         error: response.message || "Failed to adjust leverage",
       };
     } catch (error) {
+      this.restoreMainAuth();
       return {
         status: false,
         error: formatError(error),
@@ -888,7 +892,7 @@ export class DipCoinPerpSDK {
 
         if (response.code === 1000) {
           this.clearAuth();
-          const retryAuth = await this.authenticate();
+          const retryAuth = await this.authenticateForTrading();
           if (retryAuth.status) {
             response = await this.httpClient.post<OrderResponse>(
               API_ENDPOINTS.PLAN_CLOSE_ORDER,
